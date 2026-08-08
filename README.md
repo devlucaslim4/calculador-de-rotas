@@ -1,51 +1,151 @@
 # Calculador de Rotas
 
-Aplicação Streamlit que recebe uma planilha Excel, calcula distâncias rodoviárias pelo servidor público do OSRM e devolve o arquivo com distância, status e um link clicável para o Google Maps.
+Aplicação web para calcular distâncias rodoviárias em planilhas Excel usando o servidor público do OSRM. O usuário envia um arquivo `.xlsx`, acompanha o processamento e baixa a planilha original enriquecida com distância, status e link para o Google Maps.
 
-## Executar localmente
+## Visão geral
 
-Requer Python 3.11 ou superior.
+O projeto transforma um processo local em uma aplicação web pronta para uso, sem exigir que o usuário instale Python. O processamento ocorre em memória e preserva, sempre que possível, as abas, os dados e a formatação do arquivo original.
+
+### Principais recursos
+
+- Upload de arquivos `.xlsx` com qualquer nome, limitado a 25 MB.
+- Validação amigável de arquivo, cabeçalhos e coordenadas.
+- Cálculo de rotas por HTTPS com timeout e tentativas automáticas.
+- Processamento paralelo controlado com `ThreadPoolExecutor`.
+- Barra de progresso real e métricas de sucesso e falha.
+- Preservação da ordem original das linhas.
+- Geração de links clicáveis para o Google Maps.
+- Interface escura, responsiva e preparada para o Streamlit Community Cloud.
+- Processamento isolado em memória, sem armazenamento permanente das planilhas.
+
+## Tecnologias
+
+- Python 3.11+
+- Streamlit
+- pandas
+- openpyxl
+- requests
+- OSRM
+
+## Estrutura do projeto
+
+```text
+.
+├── .streamlit/
+│   └── config.toml
+├── tests/
+│   └── test_route_processor.py
+├── app.py
+├── route_processor.py
+├── requirements.txt
+├── .gitignore
+└── README.md
+```
+
+`app.py` contém a interface Streamlit. `route_processor.py` concentra a validação da planilha, as consultas ao OSRM e a geração do arquivo final.
+
+## Instalação local
+
+Clone o repositório e entre na pasta do projeto:
+
+```bash
+git clone URL_DO_REPOSITORIO
+cd calculador-de-rotas
+```
+
+Crie e ative um ambiente virtual:
 
 ```bash
 python -m venv .venv
-# Windows
-.venv\Scripts\activate
+```
+
+No Windows:
+
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+No Linux ou macOS:
+
+```bash
+source .venv/bin/activate
+```
+
+Instale as dependências e execute a aplicação:
+
+```bash
 pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Abra o endereço exibido pelo Streamlit, normalmente `http://localhost:8501`.
+A aplicação ficará disponível normalmente em `http://localhost:8501`.
 
 ## Como usar
 
-1. Envie um arquivo `.xlsx` de até 25 MB.
-2. Clique em **Calcular rotas**.
-3. Acompanhe o progresso e confira o resumo.
-4. Baixe a planilha calculada. O nome original é preservado com o sufixo `_com_distancia_gps`.
+1. Prepare uma planilha Excel com os cabeçalhos obrigatórios na primeira linha da aba ativa.
+2. Envie o arquivo pela área de upload.
+3. Clique em **Calcular rotas**.
+4. Acompanhe o progresso e confira o resumo do processamento.
+5. Clique em **Baixar planilha calculada**.
 
-Os dados são processados em memória e não são gravados permanentemente pelo aplicativo.
+Um arquivo chamado `rotas_junho.xlsx`, por exemplo, produzirá `rotas_junho_com_distancia_gps.xlsx`.
 
-## Estrutura da planilha
+## Formato da planilha
 
 A primeira linha da aba ativa deve conter:
 
-- `COORDENADA GPS INICIAL`
-- `COORDENADA GPS FINAL`
+| Coluna | Obrigatória | Descrição |
+| --- | --- | --- |
+| `COORDENADA GPS INICIAL` | Sim | Origem no formato `latitude, longitude` |
+| `COORDENADA GPS FINAL` | Sim | Destino no formato `latitude, longitude` |
 
-O cabeçalho legado `COORDENADA GPG INICIAL` também é aceito. Maiúsculas, minúsculas, acentos e espaços extras nos cabeçalhos são ignorados. Cada coordenada deve usar `latitude, longitude`, por exemplo `-23.5505, -46.6333`.
+Exemplo de coordenada válida: `-23.5505, -46.6333`.
 
-A aplicação adiciona ou atualiza `DISTÂNCIA GPS`, `STATUS DA ROTA` e `LINK DA ROTA`. As demais abas, células e formatações são preservadas sempre que possível.
+Por compatibilidade, o cabeçalho legado `COORDENADA GPG INICIAL` também é aceito. A validação ignora diferenças entre maiúsculas e minúsculas, acentos e espaços extras.
 
-## Publicar no Streamlit Community Cloud
+O arquivo processado adiciona ou atualiza:
 
-1. Envie estes arquivos para um repositório no GitHub.
-2. Acesse o [Streamlit Community Cloud](https://share.streamlit.io/), conecte o repositório e crie um app.
-3. Selecione `app.py` como arquivo principal e publique.
+- `DISTÂNCIA GPS`: distância rodoviária em quilômetros, com duas casas decimais.
+- `STATUS DA ROTA`: resultado individual do processamento da linha.
+- `LINK DA ROTA`: hiperlink `ABRIR ROTA` para o Google Maps quando a rota é válida.
 
-Não são necessárias credenciais nem variáveis secretas.
+Uma coordenada inválida afeta apenas a própria linha; as demais continuam sendo processadas.
 
-## Limitações e privacidade
+## Testes
 
-O projeto usa o servidor público de demonstração do OSRM. Ele pode aplicar limites, ficar indisponível ou responder lentamente; por isso o aplicativo limita o paralelismo, define timeout e repete falhas temporárias com espera progressiva. Para alto volume ou uso crítico, hospede uma instância própria do OSRM.
+Execute a suíte automatizada com:
 
-As coordenadas são enviadas ao servidor público do OSRM e os links apontam para o Google Maps. Não envie planilhas com dados pessoais, sigilosos ou sensíveis sem avaliar as políticas desses serviços e da hospedagem. O aplicativo não mantém os arquivos permanentemente, mas a infraestrutura de terceiros pode ter seus próprios registros.
+```bash
+pytest -q
+```
+
+Os testes cobrem validação de coordenadas, compatibilidade de cabeçalhos, preservação de abas, criação de hiperlinks, nome do arquivo final e tratamento de arquivos inválidos.
+
+## Publicação no Streamlit Community Cloud
+
+1. Publique o projeto em um repositório no GitHub.
+2. Acesse [share.streamlit.io](https://share.streamlit.io/).
+3. Entre com a conta vinculada ao GitHub.
+4. Clique em **Create app** e escolha o repositório.
+5. Informe a branch `main` e o arquivo principal `app.py`.
+6. Confirme a publicação.
+
+O projeto não utiliza chaves, senhas ou variáveis secretas.
+
+## Limitações do OSRM público
+
+O endpoint `router.project-osrm.org` é um serviço público de demonstração. Ele pode ficar temporariamente indisponível, responder lentamente ou aplicar restrições de uso. A aplicação reduz esses riscos com paralelismo limitado, timeout e espera progressiva entre novas tentativas.
+
+Para grandes volumes, disponibilidade garantida ou uso comercial crítico, utilize uma instância própria do OSRM ou um provedor de rotas com acordo de nível de serviço.
+
+## Privacidade e segurança
+
+- As planilhas são processadas em memória e não são salvas permanentemente pela aplicação.
+- As coordenadas são enviadas ao servidor público do OSRM para o cálculo das rotas.
+- Os links gerados direcionam o usuário ao Google Maps.
+- Não envie dados pessoais, sigilosos ou sensíveis sem avaliar as políticas do OSRM, do Google Maps e da plataforma de hospedagem.
+- Nenhuma credencial deve ser adicionada ao código ou versionada no repositório.
+
+## Licença
+
+Este projeto não possui uma licença de código aberto definida. Consulte o responsável antes de reutilizar ou redistribuir o código.
