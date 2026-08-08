@@ -10,7 +10,7 @@ from route_processor import SpreadsheetError, output_filename, process_workbook
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
-st.set_page_config(page_title="Calculador de Rotas", page_icon="🧭", layout="centered")
+st.set_page_config(page_title="Calculador de Rotas", layout="centered")
 
 st.markdown(
     """
@@ -22,7 +22,6 @@ st.markdown(
         padding: 1rem; box-shadow: 0 12px 32px rgba(0,0,0,.18);
     }
     h1 { letter-spacing: -.04em; }
-    .eyebrow { color: #60a5fa; font-size: .78rem; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; }
     .subtitle { color: #aeb8c8; font-size: 1.05rem; line-height: 1.65; max-width: 680px; margin-bottom: 1.8rem; }
     .file-name { color: #cbd5e1; background: #111722; border: 1px solid #273247; padding: .7rem 1rem; border-radius: 12px; margin: .5rem 0 1rem; }
     .requirements { margin-top: 2rem; padding: 1.25rem 1.4rem; border: 1px solid #252c3a; border-radius: 16px; background: rgba(14,17,23,.7); color: #aeb8c8; }
@@ -33,7 +32,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.markdown('<div class="eyebrow">OSRM · Excel</div>', unsafe_allow_html=True)
 st.title("Calculador de Rotas")
 st.markdown(
     '<div class="subtitle">Envie sua planilha, calcule as distâncias rodoviárias e baixe o arquivo pronto com status e links para o Google Maps.</div>',
@@ -43,9 +41,9 @@ st.markdown(
 uploaded_file = st.file_uploader("Selecione uma planilha Excel", type=["xlsx"], max_upload_size=25)
 
 if uploaded_file is not None:
-    st.markdown(f'<div class="file-name">📄 {uploaded_file.name}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="file-name">{uploaded_file.name}</div>', unsafe_allow_html=True)
 
-    if st.button("Calcular rotas", type="primary", use_container_width=True, icon="🧭"):
+    if st.button("Calcular rotas", type="primary", use_container_width=True):
         if not uploaded_file.name.lower().endswith(".xlsx"):
             st.error("Envie um arquivo no formato .xlsx.")
         else:
@@ -82,15 +80,13 @@ if "result" in st.session_state:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         type="primary",
         use_container_width=True,
-        icon="📥",
     )
 
 st.markdown(
     """
     <div class="requirements">
       <strong>Colunas obrigatórias</strong><br><br>
-      <code>COORDENADA GPS INICIAL</code> e <code>COORDENADA GPS FINAL</code><br>
-      <small>Formato das coordenadas: latitude, longitude. O cabeçalho legado “COORDENADA GPG INICIAL” também é aceito.</small>
+      <code>COORDENADA GPS INICIAL</code> e <code>COORDENADA GPS FINAL</code>
     </div>
     """,
     unsafe_allow_html=True,
