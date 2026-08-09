@@ -17,7 +17,7 @@ O projeto transforma um processo local em uma aplicação web pronta para uso, s
 - Geração de links clicáveis para o Google Maps.
 - Interface escura, responsiva e preparada para o Streamlit Community Cloud.
 - Processamento isolado em memória, sem armazenamento permanente das planilhas.
-- Dashboard consolidado exibido automaticamente após o processamento, sem repetir consultas ao OSRM.
+- Dashboard agrupado na aba `Análise de dados`, carregado automaticamente após o processamento e sem repetir consultas ao OSRM.
 - Filtros por período, usuário, unidade, região, motivo, centro de custo e status, conforme disponibilidade.
 - Indicadores por rota única, gráficos interativos e auditoria configurável de inconsistências.
 - Downloads dos dados filtrados, inconsistências e relatórios consolidados em PDF e Excel.
@@ -96,7 +96,7 @@ A aplicação ficará disponível normalmente em `http://localhost:8501`.
 4. Acompanhe o progresso e confira o resumo do processamento.
 5. Clique em **Baixar planilha calculada**.
 
-Depois do processamento, o dashboard é exibido automaticamente abaixo do resultado. Ele usa os dados mantidos na sessão, portanto filtros e gráficos não fazem novas chamadas à API de rotas. O relatório executivo pode ser baixado em PDF e o relatório detalhado em Excel.
+Depois do processamento, abra a aba **Análise de dados**. O dashboard já estará pronto e usa os dados mantidos na sessão, portanto filtros e gráficos não fazem novas chamadas à API de rotas. O relatório executivo pode ser baixado em PDF e o relatório detalhado em Excel.
 
 Um arquivo chamado `rotas_junho.xlsx`, por exemplo, produzirá `rotas_junho_com_distancia_gps.xlsx`.
 

@@ -27,6 +27,8 @@ st.markdown(
     .requirements { margin-top: 2rem; padding: 1.25rem 1.4rem; border: 1px solid #252c3a; border-radius: 16px; background: rgba(14,17,23,.7); color: #aeb8c8; }
     .requirements code { color: #93c5fd; }
     .stButton > button, .stDownloadButton > button { border-radius: 12px; min-height: 3rem; font-weight: 650; }
+    [data-testid="stTabs"] [data-baseweb="tab-list"] { gap: .5rem; }
+    [data-testid="stTabs"] button { border-radius: 10px; padding-left: 1rem; padding-right: 1rem; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -34,70 +36,70 @@ st.markdown(
 
 st.title("Calculador de Rotas")
 st.markdown(
-    '<div class="subtitle">Envie sua planilha para calcular as rotas. Ao concluir, o dashboard consolidado e os relatórios para download serão apresentados nesta mesma tela.</div>',
+    '<div class="subtitle">Calcule as rotas na primeira aba e consulte o dashboard agrupado na aba Análise de dados.</div>',
     unsafe_allow_html=True,
 )
 
-uploaded_file = st.file_uploader("Selecione uma planilha Excel", type=["xlsx"], max_upload_size=25)
+route_tab, analysis_tab = st.tabs(["Calcular rotas", "Análise de dados"])
 
-if uploaded_file is not None:
-    upload_token = (uploaded_file.name, uploaded_file.size)
-    if st.session_state.get("upload_token") != upload_token:
-        for key in ("result", "result_name", "original_df", "processed_df", "original_name"):
-            st.session_state.pop(key, None)
-        st.session_state["upload_token"] = upload_token
+with route_tab:
+    uploaded_file = st.file_uploader("Selecione uma planilha Excel", type=["xlsx"], max_upload_size=25)
 
-    st.markdown(f'<div class="file-name">{uploaded_file.name}</div>', unsafe_allow_html=True)
+    if uploaded_file is not None:
+        upload_token = (uploaded_file.name, uploaded_file.size)
+        if st.session_state.get("upload_token") != upload_token:
+            for key in ("result", "result_name", "original_df", "processed_df", "original_name"):
+                st.session_state.pop(key, None)
+            st.session_state["upload_token"] = upload_token
 
-    if st.button("Calcular rotas", type="primary", use_container_width=True):
-        if not uploaded_file.name.lower().endswith(".xlsx"):
-            st.error("Envie um arquivo no formato .xlsx.")
-        else:
-            progress = st.progress(0, text="Preparando a planilha…")
+        st.markdown(f'<div class="file-name">{uploaded_file.name}</div>', unsafe_allow_html=True)
 
-            def update_progress(done: int, total: int) -> None:
-                progress.progress(done / total, text=f"Processando rotas: {done} de {total}")
+        if st.button("Calcular rotas", type="primary", use_container_width=True):
+            if not uploaded_file.name.lower().endswith(".xlsx"):
+                st.error("Envie um arquivo no formato .xlsx.")
+            else:
+                progress = st.progress(0, text="Preparando a planilha…")
 
-            try:
-                original_bytes = uploaded_file.getvalue()
-                original_df = dataframe_from_excel(original_bytes)
-                with st.spinner("Consultando as rotas…"):
-                    summary = process_workbook(original_bytes, update_progress)
-                processed_df = dataframe_from_excel(summary.workbook)
-                progress.progress(1.0, text="Processamento concluído")
-                st.session_state["result"] = summary
-                st.session_state["result_name"] = output_filename(uploaded_file.name)
-                st.session_state["original_df"] = original_df
-                st.session_state["processed_df"] = processed_df
-                st.session_state["original_name"] = uploaded_file.name
-                st.success("Planilha processada com sucesso. O dashboard consolidado está disponível abaixo.")
-            except SpreadsheetError as exc:
-                progress.empty()
-                st.error(str(exc))
-            except Exception:
-                logging.exception("Erro inesperado no processamento")
-                progress.empty()
-                st.error("Não foi possível concluir o processamento. Verifique a planilha e tente novamente.")
+                def update_progress(done: int, total: int) -> None:
+                    progress.progress(done / total, text=f"Processando rotas: {done} de {total}")
 
-if "result" in st.session_state:
-    result = st.session_state["result"]
-    st.subheader("Resultado do processamento")
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total", result.total)
-    col2.metric("Calculadas", result.calculated)
-    col3.metric("Falhas", result.failed)
-    st.download_button(
-        "Baixar planilha calculada",
-        data=result.workbook,
-        file_name=st.session_state["result_name"],
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        type="primary",
-        use_container_width=True,
-    )
-    st.divider()
-    st.header("Dashboard consolidado")
-    render_dashboard(st.session_state["processed_df"], st.session_state["original_name"])
-else:
+                try:
+                    original_bytes = uploaded_file.getvalue()
+                    original_df = dataframe_from_excel(original_bytes)
+                    with st.spinner("Consultando as rotas…"):
+                        summary = process_workbook(original_bytes, update_progress)
+                    processed_df = dataframe_from_excel(summary.workbook)
+                    progress.progress(1.0, text="Processamento concluído")
+                    st.session_state["result"] = summary
+                    st.session_state["result_name"] = output_filename(uploaded_file.name)
+                    st.session_state["original_df"] = original_df
+                    st.session_state["processed_df"] = processed_df
+                    st.session_state["original_name"] = uploaded_file.name
+                    st.success("Planilha processada com sucesso. A análise está pronta na aba Análise de dados.")
+                except SpreadsheetError as exc:
+                    progress.empty()
+                    st.error(str(exc))
+                except Exception:
+                    logging.exception("Erro inesperado no processamento")
+                    progress.empty()
+                    st.error("Não foi possível concluir o processamento. Verifique a planilha e tente novamente.")
+
+    if "result" in st.session_state:
+        result = st.session_state["result"]
+        st.subheader("Resultado do processamento")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total", result.total)
+        col2.metric("Calculadas", result.calculated)
+        col3.metric("Falhas", result.failed)
+        st.download_button(
+            "Baixar planilha calculada",
+            data=result.workbook,
+            file_name=st.session_state["result_name"],
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            type="primary",
+            use_container_width=True,
+        )
+
     st.markdown(
         """
         <div class="requirements">
@@ -107,3 +109,10 @@ else:
         """,
         unsafe_allow_html=True,
     )
+
+with analysis_tab:
+    if "processed_df" not in st.session_state:
+        st.info("Primeiro processe uma planilha na aba Calcular rotas. O dashboard será carregado automaticamente aqui.")
+    else:
+        st.header("Dashboard")
+        render_dashboard(st.session_state["processed_df"], st.session_state["original_name"])

@@ -9,7 +9,6 @@ import plotly.express as px
 import streamlit as st
 
 from analysis_engine import (
-    FILTER_FIELDS,
     AnalysisData,
     analysis_workbook,
     apply_filters,
@@ -22,6 +21,7 @@ from report_export import analysis_pdf
 
 COLOR = "#3B82F6"
 WEEKDAYS = {0: "Segunda", 1: "Terça", 2: "Quarta", 3: "Quinta", 4: "Sexta", 5: "Sábado", 6: "Domingo"}
+DASHBOARD_FILTER_FIELDS = ("usuario", "unidade", "regiao", "motivo", "status")
 
 
 def dataframe_from_excel(file_bytes: bytes) -> pd.DataFrame:
@@ -35,13 +35,9 @@ def render_dashboard(dataframe: pd.DataFrame, original_name: str) -> None:
 
     st.subheader("Filtros")
     selections = _render_filters(analysis)
-    divergence_col, duration_col, top_col = st.columns(3)
-    divergence = divergence_col.number_input("Limite GPS x hodômetro (%)", min_value=1, max_value=500, value=20)
-    duration = duration_col.number_input("Duração excessiva (horas)", min_value=1.0, max_value=168.0, value=8.0)
-    top = top_col.selectbox("Quantidade nos rankings", [5, 10, 20, "Todos"], index=1)
 
     filtered = apply_filters(analysis, selections)
-    audit_all = build_audit(analysis, float(divergence), float(duration))
+    audit_all = build_audit(analysis, divergence_limit=20, duration_limit=8)
     audit = audit_all[audit_all["Índice da linha"].isin(filtered.index)].copy()
     metrics = calculate_metrics(analysis, filtered, set(audit_all["Índice da linha"].tolist()))
 
@@ -51,7 +47,7 @@ def render_dashboard(dataframe: pd.DataFrame, original_name: str) -> None:
 
     _render_metrics(metrics)
     routes = analysis.unique_routes(filtered)
-    _render_charts(analysis, routes, top)
+    _render_charts(analysis, routes, 10)
     _render_audit(audit)
     _render_downloads(analysis, filtered, audit, metrics, original_name)
 
@@ -67,15 +63,15 @@ def _render_filters(analysis: AnalysisData) -> dict[str, object]:
 
     labels = {
         "usuario": "Usuário", "unidade": "Unidade", "regiao": "Região",
-        "motivo": "Motivo", "centro_custo": "Centro de custo", "status": "Status",
+        "motivo": "Motivo", "status": "Status",
     }
-    available = [(key, analysis.columns[key]) for key in FILTER_FIELDS if key in analysis.columns]
+    available = [(key, analysis.columns[key]) for key in DASHBOARD_FILTER_FIELDS if key in analysis.columns]
     columns = st.columns(3)
     for position, (key, column) in enumerate(available):
         values = sorted(analysis.data[column].dropna().astype(str).str.strip().loc[lambda s: s.ne("")].unique().tolist())
         selections[key] = columns[position % 3].multiselect(labels[key], values, key=f"filter_{key}")
     if st.button("Limpar filtros"):
-        for key in FILTER_FIELDS:
+        for key in DASHBOARD_FILTER_FIELDS:
             st.session_state.pop(f"filter_{key}", None)
         st.rerun()
     return selections
@@ -153,13 +149,15 @@ def _render_charts(analysis: AnalysisData, routes: pd.DataFrame, top: object) ->
         else:
             st.info("Coluna de unidade não identificada.")
 
-    for keys, titles in (("motivo", "Distribuição das rotas por motivo"), ("regiao", "Distribuição das rotas por região")):
-        column = analysis.columns.get(keys)
-        if column:
-            distribution = routes.groupby(column, as_index=False).size().rename(columns={column: "Categoria", "size": "Rotas"})
-            _chart(distribution, titles, "pie", "Categoria", "Rotas")
-        else:
-            st.info(f"Coluna de {keys.replace('_', ' ')} não identificada.")
+    distributions = st.columns(2)
+    for container, (key, title) in zip(distributions, (("motivo", "Distribuição das rotas por motivo"), ("regiao", "Distribuição das rotas por região"))):
+        with container:
+            column = analysis.columns.get(key)
+            if column:
+                distribution = routes.groupby(column, as_index=False).size().rename(columns={column: "Categoria", "size": "Rotas"})
+                _chart(distribution, title, "pie", "Categoria", "Rotas")
+            else:
+                st.info(f"Coluna de {key.replace('_', ' ')} não identificada.")
 
     temporal = st.columns(2)
     with temporal[0]:
