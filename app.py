@@ -12,6 +12,8 @@ from route_processor import SpreadsheetError, output_filename, process_workbook
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 st.set_page_config(page_title="Calculador de Rotas", layout="wide")
 
+light_mode = st.toggle("Modo claro", value=False, help="Alternar entre os modos escuro e claro")
+
 st.markdown(
     """
     <style>
@@ -33,6 +35,21 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+if light_mode:
+    st.markdown(
+        """
+        <style>
+        .stApp { background: #f4f7fb; color: #172033; }
+        .stApp p, .stApp label, .stApp h1, .stApp h2, .stApp h3 { color: #172033; }
+        .subtitle { color: #526175; }
+        [data-testid="stFileUploader"], [data-testid="stAlert"], div[data-testid="stMetric"],
+        .requirements { background: rgba(255,255,255,.96); border-color: #d7e0ec; color: #526175; }
+        .file-name { color: #26364c; background: #ffffff; border-color: #d7e0ec; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 st.title("Calculador de Rotas")
 st.markdown(
@@ -115,4 +132,4 @@ with analysis_tab:
         st.info("Primeiro processe uma planilha na aba Calcular rotas. O dashboard será carregado automaticamente aqui.")
     else:
         st.header("Dashboard")
-        render_dashboard(st.session_state["processed_df"], st.session_state["original_name"])
+        render_dashboard(st.session_state["processed_df"], st.session_state["original_name"], light_mode)

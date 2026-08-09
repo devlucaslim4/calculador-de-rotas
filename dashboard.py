@@ -28,7 +28,7 @@ def dataframe_from_excel(file_bytes: bytes) -> pd.DataFrame:
     return pd.read_excel(BytesIO(file_bytes), engine="openpyxl")
 
 
-def render_dashboard(dataframe: pd.DataFrame, original_name: str) -> None:
+def render_dashboard(dataframe: pd.DataFrame, original_name: str, light_mode: bool = False) -> None:
     analysis = prepare_analysis(dataframe)
     for warning in analysis.warnings:
         st.warning(warning)
@@ -45,11 +45,17 @@ def render_dashboard(dataframe: pd.DataFrame, original_name: str) -> None:
         st.info("Nenhum registro corresponde aos filtros selecionados.")
         return
 
+    st.caption(f"Exibindo {len(filtered):,.0f} de {len(analysis.data):,.0f} registros".replace(",", "."))
     _render_metrics(metrics)
     routes = analysis.unique_routes(filtered)
-    _render_charts(analysis, routes, 10)
-    _render_audit(audit)
-    _render_downloads(analysis, filtered, audit, metrics, original_name)
+    overview_tab, data_tab, audit_tab = st.tabs(["Visão geral", "Dados detalhados", "Auditoria e downloads"])
+    with overview_tab:
+        _render_charts(analysis, routes, 10, light_mode)
+    with data_tab:
+        _render_data_table(analysis, filtered)
+    with audit_tab:
+        _render_audit(audit)
+        _render_downloads(analysis, filtered, audit, metrics, original_name)
 
 
 def _render_filters(analysis: AnalysisData) -> dict[str, object]:
@@ -69,7 +75,9 @@ def _render_filters(analysis: AnalysisData) -> dict[str, object]:
     columns = st.columns(3)
     for position, (key, column) in enumerate(available):
         values = sorted(analysis.data[column].dropna().astype(str).str.strip().loc[lambda s: s.ne("")].unique().tolist())
-        selections[key] = columns[position % 3].multiselect(labels[key], values, key=f"filter_{key}")
+        selections[key] = columns[position % 3].multiselect(
+            labels[key], values, key=f"filter_{key}", placeholder="Selecione uma ou mais opções"
+        )
     if st.button("Limpar filtros"):
         for key in DASHBOARD_FILTER_FIELDS:
             st.session_state.pop(f"filter_{key}", None)
@@ -94,7 +102,7 @@ def _render_metrics(metrics: dict[str, object]) -> None:
             column.metric(label, _format_metric(label, value))
 
 
-def _chart(frame: pd.DataFrame, title: str, kind: str = "bar", x: str | None = None, y: str | None = None, color: str | None = None) -> None:
+def _chart(frame: pd.DataFrame, title: str, kind: str = "bar", x: str | None = None, y: str | None = None, color: str | None = None, light_mode: bool = False) -> None:
     if frame.empty or (y and frame[y].dropna().empty):
         st.info(f"Dados insuficientes para: {title}.")
         return
@@ -106,7 +114,7 @@ def _chart(frame: pd.DataFrame, title: str, kind: str = "bar", x: str | None = N
         figure = px.scatter(frame, x=x, y=y, title=title, color=color, color_discrete_sequence=[COLOR], opacity=.72)
     else:
         figure = px.bar(frame, x=x, y=y, title=title, color_discrete_sequence=[COLOR])
-    figure.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", margin=dict(l=10, r=10, t=55, b=10))
+    figure.update_layout(template="plotly_white" if light_mode else "plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", margin=dict(l=10, r=10, t=55, b=10))
     st.plotly_chart(figure, use_container_width=True)
 
 
@@ -116,20 +124,20 @@ def _ranking(routes: pd.DataFrame, category: str, metric: str, label: str, top: 
     return frame if top == "Todos" else frame.head(int(top))
 
 
-def _render_charts(analysis: AnalysisData, routes: pd.DataFrame, top: object) -> None:
+def _render_charts(analysis: AnalysisData, routes: pd.DataFrame, top: object, light_mode: bool = False) -> None:
     st.subheader("Visão geral")
     user, unit = analysis.columns.get("usuario"), analysis.columns.get("unidade")
     left, right = st.columns(2)
     with left:
         if user:
             counts = routes.groupby(user, as_index=False).size().rename(columns={user: "Usuário", "size": "Rotas"}).sort_values("Rotas", ascending=False)
-            _chart(counts if top == "Todos" else counts.head(int(top)), "Usuários com mais rotas", x="Usuário", y="Rotas")
+            _chart(counts if top == "Todos" else counts.head(int(top)), "Pessoas com mais rotas", x="Usuário", y="Rotas", light_mode=light_mode)
         else:
             st.info("Coluna de usuário não identificada para o ranking de rotas.")
     with right:
         if user:
             km = routes.groupby(user, as_index=False)["__distancia_gps_valida"].sum().rename(columns={user: "Usuário", "__distancia_gps_valida": "Quilômetros"}).sort_values("Quilômetros", ascending=False)
-            _chart(km if top == "Todos" else km.head(int(top)), "Usuários com maior quilometragem", x="Usuário", y="Quilômetros")
+            _chart(km if top == "Todos" else km.head(int(top)), "Pessoas com maior quilometragem", x="Usuário", y="Quilômetros", light_mode=light_mode)
         else:
             st.info("Coluna de usuário não identificada para o ranking de quilometragem.")
 
@@ -141,11 +149,11 @@ def _render_charts(analysis: AnalysisData, routes: pd.DataFrame, top: object) ->
     chart_pairs = st.columns(2)
     with chart_pairs[0]:
         daily = dated.groupby("Data", as_index=False).size().rename(columns={"size": "Rotas"}) if not dated.empty else pd.DataFrame()
-        _chart(daily, "Quantidade de rotas por dia", "line", "Data", "Rotas")
+        _chart(daily, "Quantidade de rotas por dia", "line", "Data", "Rotas", light_mode=light_mode)
     with chart_pairs[1]:
         if unit:
             by_unit = routes.groupby(unit, as_index=False)["__distancia_gps_valida"].sum().rename(columns={unit: "Unidade", "__distancia_gps_valida": "Quilômetros"})
-            _chart(by_unit.sort_values("Quilômetros", ascending=False), "Quilometragem por unidade", x="Unidade", y="Quilômetros")
+            _chart(by_unit.sort_values("Quilômetros", ascending=False), "Quilometragem por unidade", x="Unidade", y="Quilômetros", light_mode=light_mode)
         else:
             st.info("Coluna de unidade não identificada.")
 
@@ -155,20 +163,42 @@ def _render_charts(analysis: AnalysisData, routes: pd.DataFrame, top: object) ->
             column = analysis.columns.get(key)
             if column:
                 distribution = routes.groupby(column, as_index=False).size().rename(columns={column: "Categoria", "size": "Rotas"})
-                _chart(distribution, title, "pie", "Categoria", "Rotas")
+                _chart(distribution, title, "pie", "Categoria", "Rotas", light_mode=light_mode)
             else:
                 st.info(f"Coluna de {key.replace('_', ' ')} não identificada.")
 
     temporal = st.columns(2)
     with temporal[0]:
         weekdays = dated.groupby("Dia da semana", as_index=False).size().rename(columns={"size": "Rotas"}) if not dated.empty else pd.DataFrame()
-        _chart(weekdays, "Rotas por dia da semana", x="Dia da semana", y="Rotas")
+        _chart(weekdays, "Rotas por dia da semana", x="Dia da semana", y="Rotas", light_mode=light_mode)
     with temporal[1]:
         hourly = dated.groupby("Hora", as_index=False).size().rename(columns={"size": "Rotas"}) if not dated.empty else pd.DataFrame()
-        _chart(hourly, "Rotas por horário de início", x="Hora", y="Rotas")
+        _chart(hourly, "Rotas por horário de início", x="Hora", y="Rotas", light_mode=light_mode)
 
     comparison = routes.dropna(subset=["__distancia_gps_valida", "__distancia_hodometro"]).copy()
-    _chart(comparison, "Distância GPS x hodômetro", "scatter", "__distancia_gps_valida", "__distancia_hodometro")
+    _chart(comparison, "Distância GPS x hodômetro", "scatter", "__distancia_gps_valida", "__distancia_hodometro", light_mode=light_mode)
+
+
+def _render_data_table(analysis: AnalysisData, filtered: pd.DataFrame) -> None:
+    st.subheader("Dados das rotas")
+    st.caption("Consulte os registros que correspondem aos filtros aplicados acima.")
+    preferred = ["usuario", "unidade", "regiao", "motivo", "status", "data_inicio", "data_fim", "distancia_gps"]
+    columns = [analysis.columns[key] for key in preferred if key in analysis.columns]
+    if not columns:
+        columns = [column for column in filtered.columns if not str(column).startswith("__")]
+    visible = filtered[columns].copy()
+    labels = {
+        analysis.columns.get("usuario"): "Nome",
+        analysis.columns.get("unidade"): "Unidade",
+        analysis.columns.get("regiao"): "Região",
+        analysis.columns.get("motivo"): "Motivo",
+        analysis.columns.get("status"): "Status",
+        analysis.columns.get("data_inicio"): "Início",
+        analysis.columns.get("data_fim"): "Fim",
+        analysis.columns.get("distancia_gps"): "Distância GPS (km)",
+    }
+    visible = visible.rename(columns={key: value for key, value in labels.items() if key})
+    st.dataframe(visible, use_container_width=True, hide_index=True, height=460)
 
 
 def _render_audit(audit: pd.DataFrame) -> None:

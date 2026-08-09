@@ -41,6 +41,12 @@ def test_resolves_known_header_variation_and_deduplicates_routes():
     assert len(analysis.data) == 4
 
 
+def test_recognizes_nome_as_user_column():
+    frame = sample_dataframe().rename(columns={"Usuário": "NOME"})
+    analysis = prepare_analysis(frame)
+    assert analysis.columns["usuario"] == "NOME"
+
+
 def test_recalculates_odometer_and_metrics_without_counting_duplicate_route():
     analysis = prepare_analysis(sample_dataframe())
     assert analysis.data.loc[0, "__distancia_hodometro"] == 100
