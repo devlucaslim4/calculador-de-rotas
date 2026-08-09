@@ -17,6 +17,10 @@ O projeto transforma um processo local em uma aplicação web pronta para uso, s
 - Geração de links clicáveis para o Google Maps.
 - Interface escura, responsiva e preparada para o Streamlit Community Cloud.
 - Processamento isolado em memória, sem armazenamento permanente das planilhas.
+- Dashboard opcional que reutiliza a planilha processada sem repetir consultas ao OSRM.
+- Filtros por período, usuário, unidade, região, motivo, centro de custo e status, conforme disponibilidade.
+- Indicadores por rota única, gráficos interativos e auditoria configurável de inconsistências.
+- Downloads dos dados filtrados, inconsistências e resumo analítico em Excel.
 
 ## Tecnologias
 
@@ -26,6 +30,7 @@ O projeto transforma um processo local em uma aplicação web pronta para uso, s
 - openpyxl
 - requests
 - OSRM
+- Plotly
 
 ## Estrutura do projeto
 
@@ -34,15 +39,18 @@ O projeto transforma um processo local em uma aplicação web pronta para uso, s
 ├── .streamlit/
 │   └── config.toml
 ├── tests/
+│   ├── test_analysis_engine.py
 │   └── test_route_processor.py
+├── analysis_engine.py
 ├── app.py
+├── dashboard.py
 ├── route_processor.py
 ├── requirements.txt
 ├── .gitignore
 └── README.md
 ```
 
-`app.py` contém a interface Streamlit. `route_processor.py` concentra a validação da planilha, as consultas ao OSRM e a geração do arquivo final.
+`app.py` organiza o fluxo principal e o estado da sessão. `route_processor.py` concentra a validação da planilha, as consultas ao OSRM e a geração do arquivo final. `analysis_engine.py` trata os dados, indicadores, auditoria e relatórios. `dashboard.py` constrói filtros, cards e gráficos.
 
 ## Instalação local
 
@@ -88,6 +96,8 @@ A aplicação ficará disponível normalmente em `http://localhost:8501`.
 4. Acompanhe o progresso e confira o resumo do processamento.
 5. Clique em **Baixar planilha calculada**.
 
+Depois do processamento, abra a aba **Análise dos dados** e clique em **Analisar dados**. O dashboard usa o resultado mantido na sessão, portanto filtros e gráficos não fazem novas chamadas à API de rotas.
+
 Um arquivo chamado `rotas_junho.xlsx`, por exemplo, produzirá `rotas_junho_com_distancia_gps.xlsx`.
 
 ## Formato da planilha
@@ -120,6 +130,8 @@ pytest -q
 ```
 
 Os testes cobrem validação de coordenadas, compatibilidade de cabeçalhos, preservação de abas, criação de hiperlinks, nome do arquivo final e tratamento de arquivos inválidos.
+
+Também são verificados a deduplicação de rotas por ID, o cálculo de hodômetro, os filtros, a auditoria e a abertura do relatório Excel. O limite conservador para uma distância de hodômetro fora do padrão é de 2.000 km por rota e pode ser alterado em `analysis_engine.py`.
 
 ## Publicação no Streamlit Community Cloud
 
