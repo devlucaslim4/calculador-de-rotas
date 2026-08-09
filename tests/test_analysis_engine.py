@@ -2,6 +2,7 @@ from io import BytesIO
 
 import pandas as pd
 from openpyxl import load_workbook
+from pypdf import PdfReader
 
 from analysis_engine import (
     analysis_workbook,
@@ -11,6 +12,7 @@ from analysis_engine import (
     prepare_analysis,
     resolve_columns,
 )
+from report_export import analysis_pdf
 
 
 def sample_dataframe():
@@ -78,3 +80,15 @@ def test_analysis_workbook_contains_expected_sheets_and_opens():
     result = analysis_workbook(metrics, analysis.data, audit, analysis)
     workbook = load_workbook(BytesIO(result), read_only=True)
     assert workbook.sheetnames == ["Resumo", "Rotas por usuário", "Rotas por unidade", "Dados filtrados", "Inconsistências"]
+
+
+def test_analysis_pdf_contains_summary_and_audit_pages():
+    analysis = prepare_analysis(sample_dataframe())
+    audit = build_audit(analysis)
+    metrics = calculate_metrics(analysis, analysis.data, set(audit["Índice da linha"]))
+    result = analysis_pdf(metrics, analysis.data, audit, analysis, "rotas_teste.xlsx")
+    reader = PdfReader(BytesIO(result))
+    text = "\n".join(page.extract_text() or "" for page in reader.pages)
+    assert len(reader.pages) >= 2
+    assert "Relatorio consolidado de rotas" in text
+    assert "Auditoria dos dados" in text

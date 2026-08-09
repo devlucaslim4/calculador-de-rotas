@@ -18,6 +18,7 @@ from analysis_engine import (
     normalize_header,
     prepare_analysis,
 )
+from report_export import analysis_pdf
 
 COLOR = "#3B82F6"
 WEEKDAYS = {0: "Segunda", 1: "Terça", 2: "Quarta", 3: "Quinta", 4: "Sexta", 5: "Sábado", 6: "Domingo"}
@@ -186,7 +187,7 @@ def _render_downloads(analysis: AnalysisData, filtered: pd.DataFrame, audit: pd.
     st.subheader("Downloads da análise")
     public_columns = [column for column in filtered.columns if not str(column).startswith("__")]
     stem = original_name.rsplit(".", 1)[0]
-    left, right = st.columns(2)
+    left, middle, right = st.columns(3)
     left.download_button(
         "Baixar dados filtrados em CSV",
         filtered[public_columns].to_csv(index=False).encode("utf-8-sig"),
@@ -194,8 +195,15 @@ def _render_downloads(analysis: AnalysisData, filtered: pd.DataFrame, audit: pd.
         "text/csv",
         use_container_width=True,
     )
+    middle.download_button(
+        "Baixar relatório em PDF",
+        analysis_pdf(metrics, filtered, audit, analysis, original_name),
+        f"{stem}_relatorio_analise.pdf",
+        "application/pdf",
+        use_container_width=True,
+    )
     right.download_button(
-        "Baixar resumo em Excel",
+        "Baixar relatório em Excel",
         analysis_workbook(metrics, filtered, audit, analysis),
         f"{stem}_resumo_analise.xlsx",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
