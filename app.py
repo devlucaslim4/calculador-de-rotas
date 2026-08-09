@@ -12,7 +12,7 @@ from route_processor import SpreadsheetError, output_filename, process_workbook
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 st.set_page_config(page_title="Calculador de Rotas", layout="wide")
 
-light_mode = st.toggle("Modo claro", value=False, help="Alternar entre os modos escuro e claro")
+light_mode = bool(st.session_state.get("light_mode", False))
 
 st.markdown(
     """
@@ -41,11 +41,36 @@ if light_mode:
         """
         <style>
         .stApp { background: #f4f7fb; color: #172033; }
+        [data-testid="stHeader"] { background: #f4f7fb; border-bottom: 1px solid #d7e0ec; }
         .stApp p, .stApp label, .stApp h1, .stApp h2, .stApp h3 { color: #172033; }
         .subtitle { color: #526175; }
         [data-testid="stFileUploader"], [data-testid="stAlert"], div[data-testid="stMetric"],
         .requirements { background: rgba(255,255,255,.96); border-color: #d7e0ec; color: #526175; }
         .file-name { color: #26364c; background: #ffffff; border-color: #d7e0ec; }
+        [data-baseweb="select"] > div, [data-baseweb="input"] > div,
+        [data-baseweb="base-input"], [data-baseweb="popover"] > div {
+            background: #ffffff !important; color: #172033 !important; border-color: #aebdd0 !important;
+        }
+        [data-baseweb="select"] input, [data-baseweb="input"] input,
+        [data-baseweb="select"] span { color: #172033 !important; }
+        [data-baseweb="select"] svg, [data-baseweb="input"] svg { fill: #334155 !important; }
+        .stButton > button, .stDownloadButton > button {
+            background: #ffffff; color: #172033; border: 1px solid #9fb0c5;
+        }
+        .stButton > button:hover, .stDownloadButton > button:hover {
+            color: #1d4ed8; border-color: #2563eb; background: #eff6ff;
+        }
+        [data-testid="stDataFrame"] { border: 1px solid #cbd5e1; border-radius: 12px; }
+        [data-testid="stMetricValue"], [data-testid="stMetricLabel"] { color: #172033; }
+        [data-testid="stCaptionContainer"] p { color: #526175 !important; }
+        [data-testid="stFileUploaderDropzone"] { background: #ffffff; border-color: #aebdd0; }
+        [data-testid="stFileUploaderDropzone"] span,
+        [data-testid="stFileUploaderDropzone"] small { color: #334155 !important; }
+        [data-testid="stFileUploaderDropzone"] svg { color: #2563eb; fill: #2563eb; }
+        [data-testid="stFileUploaderDropzone"] button {
+            background: #2563eb !important; color: #ffffff !important; border-color: #2563eb !important;
+        }
+        [data-testid="stFileUploaderDropzone"] button * { color: #ffffff !important; }
         </style>
         """,
         unsafe_allow_html=True,
@@ -56,6 +81,7 @@ st.markdown(
     '<div class="subtitle">Calcule as rotas na primeira aba e consulte o dashboard agrupado na aba Análise de dados.</div>',
     unsafe_allow_html=True,
 )
+st.toggle("Modo claro", key="light_mode", help="Alternar entre os modos escuro e claro")
 
 route_tab, analysis_tab = st.tabs(["Calcular rotas", "Análise de dados"])
 

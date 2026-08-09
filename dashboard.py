@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from io import BytesIO
 
 import pandas as pd
@@ -48,14 +49,14 @@ def render_dashboard(dataframe: pd.DataFrame, original_name: str, light_mode: bo
     st.caption(f"Exibindo {len(filtered):,.0f} de {len(analysis.data):,.0f} registros".replace(",", "."))
     _render_metrics(metrics)
     routes = analysis.unique_routes(filtered)
-    overview_tab, data_tab, audit_tab = st.tabs(["Visão geral", "Dados detalhados", "Auditoria e downloads"])
+    _render_downloads(analysis, filtered, audit, metrics, original_name)
+    overview_tab, data_tab, audit_tab = st.tabs(["Visão geral", "Dados detalhados", "Auditoria"])
     with overview_tab:
         _render_charts(analysis, routes, 10, light_mode)
     with data_tab:
         _render_data_table(analysis, filtered)
     with audit_tab:
         _render_audit(audit)
-        _render_downloads(analysis, filtered, audit, metrics, original_name)
 
 
 def _render_filters(analysis: AnalysisData) -> dict[str, object]:
@@ -212,7 +213,8 @@ def _render_audit(audit: pd.DataFrame) -> None:
 
 
 def _render_downloads(analysis: AnalysisData, filtered: pd.DataFrame, audit: pd.DataFrame, metrics: dict[str, object], original_name: str) -> None:
-    st.subheader("Downloads da análise")
+    st.subheader("Baixar análise")
+    st.caption("Os arquivos abaixo respeitam todos os filtros selecionados.")
     public_columns = [column for column in filtered.columns if not str(column).startswith("__")]
     stem = original_name.rsplit(".", 1)[0]
     left, middle, right = st.columns(3)
@@ -223,17 +225,27 @@ def _render_downloads(analysis: AnalysisData, filtered: pd.DataFrame, audit: pd.
         "text/csv",
         use_container_width=True,
     )
-    middle.download_button(
-        "Baixar relatório em PDF",
-        analysis_pdf(metrics, filtered, audit, analysis, original_name),
-        f"{stem}_relatorio_analise.pdf",
-        "application/pdf",
-        use_container_width=True,
-    )
-    right.download_button(
-        "Baixar relatório em Excel",
-        analysis_workbook(metrics, filtered, audit, analysis),
-        f"{stem}_resumo_analise.xlsx",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        use_container_width=True,
-    )
+    try:
+        pdf_data = analysis_pdf(metrics, filtered, audit, analysis, original_name)
+        middle.download_button(
+            "Baixar relatório em PDF",
+            pdf_data,
+            f"{stem}_relatorio_analise.pdf",
+            "application/pdf",
+            use_container_width=True,
+        )
+    except Exception:
+        logging.exception("Falha ao gerar o relatório PDF")
+        middle.error("Não foi possível preparar o PDF.")
+    try:
+        excel_data = analysis_workbook(metrics, filtered, audit, analysis)
+        right.download_button(
+            "Baixar relatório em Excel",
+            excel_data,
+            f"{stem}_resumo_analise.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+        )
+    except Exception:
+        logging.exception("Falha ao gerar o relatório Excel")
+        right.error("Não foi possível preparar o Excel.")
