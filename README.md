@@ -44,14 +44,13 @@ O projeto transforma um processo local em uma aplicação web pronta para uso, s
 ├── analysis_engine.py
 ├── app.py
 ├── dashboard.py
-├── ui_helpers.py
 ├── route_processor.py
 ├── requirements.txt
 ├── .gitignore
 └── README.md
 ```
 
-`app.py` organiza o fluxo principal e o estado da sessão. `ui_helpers.py` gera a planilha modelo e valida o upload antes do processamento. `route_processor.py` concentra a validação definitiva, as consultas ao OSRM e a geração do arquivo final. `analysis_engine.py` trata os dados, indicadores, auditoria e relatórios. `dashboard.py` constrói filtros, cards e gráficos.
+`app.py` organiza o fluxo principal e o estado da sessão. `route_processor.py` concentra a validação da planilha, as consultas ao OSRM e a geração do arquivo final. `analysis_engine.py` trata os dados, indicadores, auditoria e relatórios. `dashboard.py` constrói filtros, cards e gráficos.
 
 ## Instalação local
 
