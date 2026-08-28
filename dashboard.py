@@ -20,9 +20,9 @@ from analysis_engine import (
 )
 from report_export import analysis_pdf
 
-COLOR = "#3B82F6"
+COLOR = "#F4511E"
 WEEKDAYS = {0: "Segunda", 1: "Terça", 2: "Quarta", 3: "Quinta", 4: "Sexta", 5: "Sábado", 6: "Domingo"}
-DASHBOARD_FILTER_FIELDS = ("usuario", "unidade", "regiao", "motivo", "status")
+DASHBOARD_FILTER_FIELDS = ("usuario", "unidade", "regiao", "motivo", "centro_custo", "status")
 
 
 def dataframe_from_excel(file_bytes: bytes) -> pd.DataFrame:
@@ -70,7 +70,7 @@ def _render_filters(analysis: AnalysisData) -> dict[str, object]:
 
     labels = {
         "usuario": "Usuário", "unidade": "Unidade", "regiao": "Região",
-        "motivo": "Motivo", "status": "Status",
+        "motivo": "Motivo", "centro_custo": "Centro de custo", "status": "Status",
     }
     available = [(key, analysis.columns[key]) for key in DASHBOARD_FILTER_FIELDS if key in analysis.columns]
     columns = st.columns(3)
@@ -110,12 +110,12 @@ def _chart(frame: pd.DataFrame, title: str, kind: str = "bar", x: str | None = N
     if kind == "line":
         figure = px.line(frame, x=x, y=y, markers=True, title=title, color_discrete_sequence=[COLOR])
     elif kind == "pie":
-        figure = px.pie(frame, names=x, values=y, hole=.45, title=title, color_discrete_sequence=px.colors.sequential.Blues_r)
+        figure = px.pie(frame, names=x, values=y, hole=.55, title=title, color_discrete_sequence=["#F4511E", "#FF8A65", "#303842", "#667085", "#FDBA74"])
     elif kind == "scatter":
         figure = px.scatter(frame, x=x, y=y, title=title, color=color, color_discrete_sequence=[COLOR], opacity=.72)
     else:
         figure = px.bar(frame, x=x, y=y, title=title, color_discrete_sequence=[COLOR])
-    figure.update_layout(template="plotly_white" if light_mode else "plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", margin=dict(l=10, r=10, t=55, b=10))
+    figure.update_layout(template="plotly_white" if light_mode else "plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", margin=dict(l=10, r=10, t=55, b=10), font=dict(color="#344054"), title_font=dict(size=16, color="#111827"), hoverlabel=dict(bgcolor="#303842", font_color="white"))
     st.plotly_chart(figure, use_container_width=True)
 
 
