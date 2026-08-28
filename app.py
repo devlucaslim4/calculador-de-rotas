@@ -78,15 +78,15 @@ if light_mode:
 
 st.title("Calculador de Rotas")
 st.markdown(
-    '<div class="subtitle">Envie sua planilha, calcule as distâncias das rotas e consulte os resultados na aba de análise.</div>',
+    '<div class="subtitle">Calcule as rotas na primeira aba e consulte o dashboard agrupado na aba Análise de dados.</div>',
     unsafe_allow_html=True,
 )
-st.toggle("Usar tema claro", key="light_mode", help="Alterna a aparência entre os temas escuro e claro")
+st.toggle("Modo claro", key="light_mode", help="Alternar entre os modos escuro e claro")
 
-route_tab, analysis_tab = st.tabs(["Calcular Rotas", "Análise de Dados"])
+route_tab, analysis_tab = st.tabs(["Calcular rotas", "Análise de dados"])
 
 with route_tab:
-    uploaded_file = st.file_uploader("Envie uma planilha Excel (.xlsx)", type=["xlsx"], max_upload_size=25)
+    uploaded_file = st.file_uploader("Selecione uma planilha Excel", type=["xlsx"], max_upload_size=25)
 
     if uploaded_file is not None:
         upload_token = (uploaded_file.name, uploaded_file.size)
@@ -97,19 +97,19 @@ with route_tab:
 
         st.markdown(f'<div class="file-name">{uploaded_file.name}</div>', unsafe_allow_html=True)
 
-        if st.button("Calcular distâncias", type="primary", use_container_width=True):
+        if st.button("Calcular rotas", type="primary", use_container_width=True):
             if not uploaded_file.name.lower().endswith(".xlsx"):
                 st.error("Envie um arquivo no formato .xlsx.")
             else:
-                progress = st.progress(0, text="Validando a planilha…")
+                progress = st.progress(0, text="Preparando a planilha…")
 
                 def update_progress(done: int, total: int) -> None:
-                    progress.progress(done / total, text=f"Calculando rotas: {done} de {total}")
+                    progress.progress(done / total, text=f"Processando rotas: {done} de {total}")
 
                 try:
                     original_bytes = uploaded_file.getvalue()
                     original_df = dataframe_from_excel(original_bytes)
-                    with st.spinner("Consultando as distâncias rodoviárias…"):
+                    with st.spinner("Consultando as rotas…"):
                         summary = process_workbook(original_bytes, update_progress)
                     processed_df = dataframe_from_excel(summary.workbook)
                     progress.progress(1.0, text="Processamento concluído")
@@ -118,24 +118,24 @@ with route_tab:
                     st.session_state["original_df"] = original_df
                     st.session_state["processed_df"] = processed_df
                     st.session_state["original_name"] = uploaded_file.name
-                    st.success("Planilha processada com sucesso. Consulte os resultados abaixo ou abra a aba Análise de Dados.")
+                    st.success("Planilha processada com sucesso. A análise está pronta na aba Análise de dados.")
                 except SpreadsheetError as exc:
                     progress.empty()
                     st.error(str(exc))
                 except Exception:
                     logging.exception("Erro inesperado no processamento")
                     progress.empty()
-                    st.error("Não foi possível concluir o processamento. Verifique o arquivo e tente novamente em alguns instantes.")
+                    st.error("Não foi possível concluir o processamento. Verifique a planilha e tente novamente.")
 
     if "result" in st.session_state:
         result = st.session_state["result"]
-        st.subheader("Resultado")
+        st.subheader("Resultado do processamento")
         col1, col2, col3 = st.columns(3)
-        col1.metric("Total de rotas", result.total)
+        col1.metric("Total", result.total)
         col2.metric("Calculadas", result.calculated)
-        col3.metric("Não calculadas", result.failed)
+        col3.metric("Falhas", result.failed)
         st.download_button(
-            "Baixar planilha processada",
+            "Baixar planilha calculada",
             data=result.workbook,
             file_name=st.session_state["result_name"],
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -146,7 +146,7 @@ with route_tab:
     st.markdown(
         """
         <div class="requirements">
-          <strong>Colunas obrigatórias na primeira linha</strong><br><br>
+          <strong>Colunas obrigatórias</strong><br><br>
           <code>COORDENADA GPS INICIAL</code> e <code>COORDENADA GPS FINAL</code>
         </div>
         """,
@@ -155,7 +155,7 @@ with route_tab:
 
 with analysis_tab:
     if "processed_df" not in st.session_state:
-        st.info("Processe uma planilha na aba Calcular Rotas. A análise será exibida automaticamente aqui.")
+        st.info("Primeiro processe uma planilha na aba Calcular rotas. O dashboard será carregado automaticamente aqui.")
     else:
-        st.header("Análise das Rotas")
+        st.header("Dashboard")
         render_dashboard(st.session_state["processed_df"], st.session_state["original_name"], light_mode)
