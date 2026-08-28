@@ -20,32 +20,32 @@ light_mode = bool(st.session_state.get("light_mode", False))
 def inject_styles(is_light: bool) -> None:
     """Aplica uma camada visual sem substituir os componentes acessíveis nativos."""
     colors = {
-        "bg": "#F4F7FB" if is_light else "#0B1120",
-        "surface": "#FFFFFF" if is_light else "#111827",
-        "surface_2": "#F8FAFC" if is_light else "#1E293B",
+        "bg": "#F4F7FB" if is_light else "#080A0E",
+        "surface": "#FFFFFF" if is_light else "#111722",
+        "surface_2": "#F8FAFC" if is_light else "#151C28",
         "text": "#172033" if is_light else "#F1F5F9",
         "muted": "#526175" if is_light else "#AEB8C8",
-        "line": "#D7E0EC" if is_light else "#263449",
-        "accent": "#2563EB" if is_light else "#3B82F6",
-        "soft": "#EFF6FF" if is_light else "#172A4A",
+        "line": "#D7E0EC" if is_light else "#293142",
+        "accent": "#2563EB" if is_light else "#60A5FA",
+        "soft": "#EFF6FF" if is_light else "#10213C",
     }
     st.markdown(
         f"""
         <style>
         :root{{--app-bg:{colors['bg']};--surface:{colors['surface']};--surface-2:{colors['surface_2']};--text:{colors['text']};--muted:{colors['muted']};--line:{colors['line']};--accent:{colors['accent']};--soft:{colors['soft']}}}
-        .stApp{{background:radial-gradient(circle at 50% -20%,color-mix(in srgb,var(--accent) 9%,var(--app-bg)) 0%,var(--app-bg) 42%);color:var(--text)}}
+        .stApp{{background:var(--app-bg);color:var(--text)}}
         [data-testid="stHeader"]{{background:color-mix(in srgb,var(--app-bg) 90%,transparent);border-bottom:1px solid var(--line);backdrop-filter:blur(12px)}}
         .block-container{{max-width:1240px;padding:2.4rem 2rem 4rem}}
         h1,h2,h3{{color:var(--text);letter-spacing:-.025em}}
-        .app-header{{display:flex;justify-content:space-between;align-items:flex-start;gap:2rem;margin-bottom:1.35rem;padding-bottom:.25rem}}
+        .app-header{{display:flex;justify-content:space-between;align-items:flex-start;gap:2rem;margin-bottom:1.2rem}}
         .app-header h1{{font-size:clamp(2rem,4vw,2.7rem);margin:0 0 .4rem}}
         .app-header p{{color:var(--muted);font-size:1rem;line-height:1.6;max-width:720px;margin:0}}
         .privacy-note{{color:var(--muted);font-size:.78rem;border:1px solid var(--line);border-radius:999px;padding:.45rem .75rem;white-space:nowrap;background:var(--surface)}}
         [data-testid="stTabs"] [data-baseweb="tab-list"]{{gap:.35rem;border-bottom:1px solid var(--line);margin-bottom:1.1rem}}
         [data-testid="stTabs"] button{{min-height:3.25rem;padding:0 1.2rem;border-radius:10px 10px 0 0;color:var(--muted);font-weight:650}}
-        [data-testid="stTabs"] button[aria-selected="true"]{{color:var(--text);background:color-mix(in srgb,var(--soft) 65%,transparent)}}
+        [data-testid="stTabs"] button[aria-selected="true"]{{color:var(--accent);background:var(--soft)}}
         [data-testid="stTabs"] [data-baseweb="tab-highlight"]{{background:var(--accent);height:3px}}
-        [data-testid="stFileUploader"]{{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:1rem;box-shadow:0 16px 38px rgba(0,0,0,.16)}}
+        [data-testid="stFileUploader"]{{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:1rem;box-shadow:0 10px 28px rgba(0,0,0,.08)}}
         [data-testid="stFileUploaderDropzone"]{{min-height:150px;background:var(--surface-2);border:1.5px dashed color-mix(in srgb,var(--accent) 55%,var(--line));border-radius:12px}}
         [data-testid="stFileUploaderDropzoneInstructions"] span{{font-size:0}}
         [data-testid="stFileUploaderDropzoneInstructions"] span:after{{content:"Arraste o arquivo aqui ou clique para selecionar";font-size:.95rem;color:var(--text);font-weight:650}}
@@ -53,8 +53,7 @@ def inject_styles(is_light: bool) -> None:
         [data-testid="stFileUploaderDropzoneInstructions"] small:after{{content:"Limite de 25 MB • formato XLSX";font-size:.76rem;color:var(--muted)}}
         [data-testid="stFileUploaderDropzone"] button{{font-size:0;border-radius:9px;background:var(--accent);border-color:var(--accent);color:white}}
         [data-testid="stFileUploaderDropzone"] button:after{{content:"Selecionar arquivo";font-size:.85rem;color:white}}
-        .empty-card{{background:linear-gradient(145deg,var(--surface),color-mix(in srgb,var(--surface-2) 45%,var(--surface)));border:1px solid var(--line);border-radius:16px;padding:clamp(1.2rem,3vw,2rem);margin-top:1rem;box-shadow:0 18px 45px rgba(0,0,0,.14)}}
-        .empty-icon{{display:grid;place-items:center;width:58px;height:58px;border-radius:16px;background:var(--soft);border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line));font-size:1.75rem;margin-bottom:1rem}}
+        .empty-card{{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:clamp(1.2rem,3vw,2rem);margin-top:1rem}}
         .empty-card h3{{margin:.1rem 0 .35rem;font-size:1.25rem}}.empty-card>p{{color:var(--muted);margin:0 0 1.4rem}}
         .steps{{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem}}
         .step{{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:1rem}}
@@ -64,11 +63,9 @@ def inject_styles(is_light: bool) -> None:
         .file-summary{{display:flex;justify-content:space-between;align-items:center;gap:1rem;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.9rem 1rem;margin:.8rem 0}}
         .file-summary strong{{display:block;color:var(--text);font-size:.9rem}}.file-summary span{{color:var(--muted);font-size:.78rem}}
         [data-testid="stAlert"],div[data-testid="stMetric"]{{border-radius:12px;border-width:1px}}
-        div[data-testid="stMetric"]{{background:linear-gradient(145deg,var(--surface),color-mix(in srgb,var(--surface-2) 30%,var(--surface)));border:1px solid var(--line);padding:1rem;box-shadow:0 10px 26px rgba(0,0,0,.1)}}
+        div[data-testid="stMetric"]{{background:var(--surface);border:1px solid var(--line);padding:1rem}}
         [data-testid="stDataFrame"]{{border:1px solid var(--line);border-radius:12px;overflow:hidden}}
-        .stButton>button,.stDownloadButton>button{{min-height:2.9rem;border-radius:10px;font-weight:650;transition:transform .18s ease,box-shadow .18s ease}}
-        .stButton>button[kind="primary"],.stDownloadButton>button[kind="primary"]{{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 9px 24px color-mix(in srgb,var(--accent) 25%,transparent)}}
-        .stButton>button:hover,.stDownloadButton>button:hover{{transform:translateY(-1px)}}
+        .stButton>button,.stDownloadButton>button{{min-height:2.9rem;border-radius:10px;font-weight:650}}
         .section-heading{{margin:1.4rem 0 .75rem}}.section-heading strong{{display:block;color:var(--text);font-size:1.05rem}}.section-heading span{{color:var(--muted);font-size:.84rem}}
         @media(max-width:720px){{.block-container{{padding:1.2rem .9rem 3rem}}.app-header{{display:block}}.privacy-note{{display:inline-block;margin-top:.8rem}}.steps{{grid-template-columns:1fr}}[data-testid="stTabs"] button{{padding:0 .7rem;font-size:.85rem}}.file-summary{{align-items:flex-start;flex-direction:column}}}}
         </style>
@@ -88,7 +85,6 @@ def render_empty_state() -> None:
     st.markdown(
         """
         <div class="empty-card">
-          <div class="empty-icon">📍</div>
           <h3>Comece com sua planilha de rotas</h3>
           <p>Use o modelo abaixo ou prepare seu próprio arquivo seguindo três passos simples.</p>
           <div class="steps">
@@ -107,7 +103,6 @@ def render_empty_state() -> None:
         build_template_workbook(),
         "modelo_calculador_de_rotas.xlsx",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        type="primary",
         use_container_width=True,
     )
     st.caption("Você pode manter outras colunas na planilha; elas serão preservadas no resultado.")
@@ -210,7 +205,6 @@ with analysis_tab:
         st.markdown(
             """
             <div class="empty-card">
-              <div class="empty-icon">📊</div>
               <h3>📊 Sua análise aparecerá aqui</h3>
               <p>Envie e processe uma planilha na aba Calcular rotas. Os indicadores, gráficos e filtros serão preparados automaticamente, sem refazer as consultas.</p>
             </div>
