@@ -17,16 +17,18 @@ light_mode = bool(st.session_state.get("light_mode", False))
 st.markdown(
     """
     <style>
-    .stApp { background: radial-gradient(circle at 50% 0%, #172033 0%, #0b0d12 42%, #07080b 100%); }
+    .stApp { background: radial-gradient(circle at 50% 0%, #0c1018 0%, #06080c 42%, #040507 100%); }
+    [data-testid="stHeader"] { background: #06080c; }
+    [data-testid="stFileUploaderDropzone"] { background: #0c1017; border-color: #242b38; }
     .block-container { max-width: 1240px; padding-top: 3rem; padding-bottom: 4rem; }
     [data-testid="stFileUploader"], [data-testid="stAlert"], div[data-testid="stMetric"] {
-        background: rgba(18, 22, 31, .82); border: 1px solid #293142; border-radius: 16px;
+        background: #0b0e14; border: 1px solid #202633; border-radius: 16px;
         padding: 1rem; box-shadow: 0 12px 32px rgba(0,0,0,.18);
     }
     h1 { letter-spacing: -.04em; }
     .subtitle { color: #aeb8c8; font-size: 1.05rem; line-height: 1.65; max-width: 760px; margin-bottom: 1.8rem; }
-    .file-name { color: #cbd5e1; background: #111722; border: 1px solid #273247; padding: .7rem 1rem; border-radius: 12px; margin: .5rem 0 1rem; }
-    .requirements { margin-top: 2rem; padding: 1.25rem 1.4rem; border: 1px solid #252c3a; border-radius: 16px; background: rgba(14,17,23,.7); color: #aeb8c8; }
+    .file-name { color: #cbd5e1; background: #0b0e14; border: 1px solid #202633; padding: .7rem 1rem; border-radius: 12px; margin: .5rem 0 1rem; }
+    .requirements { margin-top: 2rem; padding: 1.25rem 1.4rem; border: 1px solid #202633; border-radius: 16px; background: #090c11; color: #aeb8c8; }
     .requirements code { color: #93c5fd; }
     .stButton > button, .stDownloadButton > button { border-radius: 12px; min-height: 3rem; font-weight: 650; }
     [data-testid="stTabs"] [data-baseweb="tab-list"] { gap: .5rem; }
