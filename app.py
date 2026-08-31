@@ -1,126 +1,86 @@
-"""Interface web do Calculador de Rotas."""
-
+"""Interface de cálculo de rotas com apresentação aprovada em prévia."""
 from __future__ import annotations
 
+import hashlib
+import html
 import logging
 
 import streamlit as st
 
 from dashboard import dataframe_from_excel, render_dashboard
 from route_processor import SpreadsheetError, output_filename, process_workbook
+from ui_theme import apply_theme, render_analysis_empty, render_guide
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 st.set_page_config(page_title="Calculador de Rotas", layout="wide")
 
 light_mode = bool(st.session_state.get("light_mode", False))
+apply_theme(light_mode)
 
-st.markdown(
-    """
-    <style>
-    .stApp { background: radial-gradient(circle at 50% 0%, #0c1018 0%, #06080c 42%, #040507 100%); }
-    [data-testid="stHeader"] { background: #06080c; }
-    [data-testid="stFileUploaderDropzone"] { background: #0c1017; border-color: #242b38; }
-    .block-container { max-width: 1240px; padding-top: 3rem; padding-bottom: 4rem; }
-    [data-testid="stFileUploader"], [data-testid="stAlert"], div[data-testid="stMetric"] {
-        background: #0b0e14; border: 1px solid #202633; border-radius: 16px;
-        padding: 1rem; box-shadow: 0 12px 32px rgba(0,0,0,.18);
-    }
-    h1 { letter-spacing: -.04em; }
-    .subtitle { color: #aeb8c8; font-size: 1.05rem; line-height: 1.65; max-width: 760px; margin-bottom: 1.8rem; }
-    .file-name { color: #cbd5e1; background: #0b0e14; border: 1px solid #202633; padding: .7rem 1rem; border-radius: 12px; margin: .5rem 0 1rem; }
-    .requirements { margin-top: 2rem; padding: 1.25rem 1.4rem; border: 1px solid #202633; border-radius: 16px; background: #090c11; color: #aeb8c8; }
-    .requirements code { color: #93c5fd; }
-    .stButton > button, .stDownloadButton > button { border-radius: 12px; min-height: 3rem; font-weight: 650; }
-    [data-testid="stTabs"] [data-baseweb="tab-list"] { gap: .5rem; }
-    [data-testid="stTabs"] button { border-radius: 10px; padding-left: 1rem; padding-right: 1rem; }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+brand, theme = st.columns([3, 1])
+with brand:
+    st.markdown('<div class="rp-brand"><span class="rp-symbol" aria-hidden="true">↗</span>Calculador de Rotas</div>', unsafe_allow_html=True)
+with theme:
+    st.toggle("Tema claro", key="light_mode", help="Alternar entre os temas claro e escuro")
 
-if light_mode:
-    st.markdown(
-        """
-        <style>
-        .stApp { background: #f4f7fb; color: #172033; }
-        [data-testid="stHeader"] { background: #f4f7fb; border-bottom: 1px solid #d7e0ec; }
-        .stApp p, .stApp label, .stApp h1, .stApp h2, .stApp h3 { color: #172033; }
-        .subtitle { color: #526175; }
-        [data-testid="stFileUploader"], [data-testid="stAlert"], div[data-testid="stMetric"],
-        .requirements { background: rgba(255,255,255,.96); border-color: #d7e0ec; color: #526175; }
-        .file-name { color: #26364c; background: #ffffff; border-color: #d7e0ec; }
-        [data-baseweb="select"] > div, [data-baseweb="input"] > div,
-        [data-baseweb="base-input"], [data-baseweb="popover"] > div {
-            background: #ffffff !important; color: #172033 !important; border-color: #aebdd0 !important;
-        }
-        [data-baseweb="select"] input, [data-baseweb="input"] input,
-        [data-baseweb="select"] span { color: #172033 !important; }
-        [data-baseweb="select"] svg, [data-baseweb="input"] svg { fill: #334155 !important; }
-        .stButton > button, .stDownloadButton > button {
-            background: #ffffff; color: #172033; border: 1px solid #9fb0c5;
-        }
-        .stButton > button:hover, .stDownloadButton > button:hover {
-            color: #1d4ed8; border-color: #2563eb; background: #eff6ff;
-        }
-        [data-testid="stDataFrame"] { border: 1px solid #cbd5e1; border-radius: 12px; }
-        [data-testid="stMetricValue"], [data-testid="stMetricLabel"] { color: #172033; }
-        [data-testid="stCaptionContainer"] p { color: #526175 !important; }
-        [data-testid="stFileUploaderDropzone"] { background: #ffffff; border-color: #aebdd0; }
-        [data-testid="stFileUploaderDropzone"] span,
-        [data-testid="stFileUploaderDropzone"] small { color: #334155 !important; }
-        [data-testid="stFileUploaderDropzone"] svg { color: #2563eb; fill: #2563eb; }
-        [data-testid="stFileUploaderDropzone"] button {
-            background: #2563eb !important; color: #ffffff !important; border-color: #2563eb !important;
-        }
-        [data-testid="stFileUploaderDropzone"] button * { color: #ffffff !important; }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+st.markdown('<div class="rp-heading"><h1>Suas rotas, organizadas.</h1><p>Da planilha às distâncias calculadas, em um só lugar.</p></div>', unsafe_allow_html=True)
 
-st.title("Calculador de Rotas")
-st.markdown(
-    '<div class="subtitle">Envie sua planilha, calcule as distâncias das rotas e consulte os resultados na aba de análise.</div>',
-    unsafe_allow_html=True,
-)
-st.toggle("Usar tema claro", key="light_mode", help="Alterna a aparência entre os temas escuro e claro")
-
-route_tab, analysis_tab = st.tabs(["Calcular Rotas", "Análise de Dados"])
+route_tab, analysis_tab = st.tabs(["Calcular rotas", "Análise de dados"])
 
 with route_tab:
-    uploaded_file = st.file_uploader("Envie uma planilha Excel (.xlsx)", type=["xlsx"], max_upload_size=25)
+    # Os componentes nativos mantêm upload, teclado e execução no servidor.
+    upload_column, guide_column = st.columns([2.4, 1], gap="large")
+    with upload_column:
+        with st.container(key="upload_panel"):
+            st.markdown('<div class="rp-section"><strong>Importar planilha</strong><span>.xlsx</span></div><div class="rp-upload-heading"><div class="rp-symbol" aria-hidden="true">↑</div><strong>Sua próxima rota começa aqui</strong><p>Selecione a planilha com as coordenadas.</p></div>', unsafe_allow_html=True)
+            uploaded_file = st.file_uploader(
+                "Selecionar planilha Excel (.xlsx), até 25 MB",
+                type=["xlsx"], max_upload_size=25, label_visibility="collapsed",
+            )
+            st.markdown('<p class="rp-note">O resultado mantém as colunas da sua planilha.</p>', unsafe_allow_html=True)
+    with guide_column:
+        render_guide()
+
+    with st.expander("Quais colunas minha planilha precisa ter?"):
+        st.markdown('''<div class="rp-schema">
+          <div><code>COORDENADA GPS INICIAL</code>Origem · exemplo: -23.5505, -46.6333</div>
+          <div><code>COORDENADA GPS FINAL</code>Destino · exemplo: -22.9068, -43.1729</div>
+        </div>''', unsafe_allow_html=True)
+        st.caption("Use os cabeçalhos na primeira linha da aba ativa. Informe latitude e longitude separadas por vírgula.")
+
+    # Identidade pelo conteúdo evita exibir resultados de outro arquivo com mesmo nome/tamanho.
+    original_bytes = uploaded_file.getvalue() if uploaded_file is not None else None
+    upload_token = (uploaded_file.name, hashlib.sha256(original_bytes).hexdigest()) if uploaded_file is not None else None
+    if st.session_state.get("upload_token") != upload_token:
+        for key in ("result", "result_name", "original_df", "processed_df", "original_name"):
+            st.session_state.pop(key, None)
+        st.session_state["upload_token"] = upload_token
 
     if uploaded_file is not None:
-        upload_token = (uploaded_file.name, uploaded_file.size)
-        if st.session_state.get("upload_token") != upload_token:
-            for key in ("result", "result_name", "original_df", "processed_df", "original_name"):
-                st.session_state.pop(key, None)
-            st.session_state["upload_token"] = upload_token
-
-        st.markdown(f'<div class="file-name">{uploaded_file.name}</div>', unsafe_allow_html=True)
-
-        if st.button("Calcular distâncias", type="primary", use_container_width=True):
+        st.markdown(f'<div class="file-name">{html.escape(uploaded_file.name)}</div>', unsafe_allow_html=True)
+        if st.button("Calcular rotas", type="primary", use_container_width=True):
             if not uploaded_file.name.lower().endswith(".xlsx"):
                 st.error("Envie um arquivo no formato .xlsx.")
             else:
                 progress = st.progress(0, text="Validando a planilha…")
 
                 def update_progress(done: int, total: int) -> None:
-                    progress.progress(done / total, text=f"Calculando rotas: {done} de {total}")
+                    progress.progress(done / max(total, 1), text=f"Calculando rotas: {done} de {total}")
 
                 try:
-                    original_bytes = uploaded_file.getvalue()
                     original_df = dataframe_from_excel(original_bytes)
                     with st.spinner("Consultando as distâncias rodoviárias…"):
                         summary = process_workbook(original_bytes, update_progress)
                     processed_df = dataframe_from_excel(summary.workbook)
                     progress.progress(1.0, text="Processamento concluído")
-                    st.session_state["result"] = summary
-                    st.session_state["result_name"] = output_filename(uploaded_file.name)
-                    st.session_state["original_df"] = original_df
-                    st.session_state["processed_df"] = processed_df
-                    st.session_state["original_name"] = uploaded_file.name
-                    st.success("Planilha processada com sucesso. Consulte os resultados abaixo ou abra a aba Análise de Dados.")
+                    st.session_state.update(
+                        result=summary,
+                        result_name=output_filename(uploaded_file.name),
+                        original_df=original_df,
+                        processed_df=processed_df,
+                        original_name=uploaded_file.name,
+                    )
+                    st.success("Planilha processada. Baixe o resultado ou abra a aba Análise de dados.")
                 except SpreadsheetError as exc:
                     progress.empty()
                     st.error(str(exc))
@@ -137,27 +97,17 @@ with route_tab:
         col2.metric("Calculadas", result.calculated)
         col3.metric("Não calculadas", result.failed)
         st.download_button(
-            "Baixar planilha processada",
-            data=result.workbook,
-            file_name=st.session_state["result_name"],
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            type="primary",
-            use_container_width=True,
+            "Baixar planilha processada", result.workbook,
+            st.session_state["result_name"],
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            type="primary", use_container_width=True,
         )
-
-    st.markdown(
-        """
-        <div class="requirements">
-          <strong>Colunas obrigatórias na primeira linha</strong><br><br>
-          <code>COORDENADA GPS INICIAL</code> e <code>COORDENADA GPS FINAL</code>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
 
 with analysis_tab:
     if "processed_df" not in st.session_state:
-        st.info("Processe uma planilha na aba Calcular Rotas. A análise será exibida automaticamente aqui.")
+        render_analysis_empty()
     else:
-        st.header("Análise das Rotas")
+        st.header("Análise das rotas")
         render_dashboard(st.session_state["processed_df"], st.session_state["original_name"], light_mode)
+
+st.markdown('<div class="rp-footer"><span>Calculador de Rotas</span><span>As coordenadas são consultadas no serviço OSRM.</span></div>', unsafe_allow_html=True)
