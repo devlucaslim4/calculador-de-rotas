@@ -1,0 +1,30 @@
+{
+  "source_examples": ["padrao_erp.xlsx", "tratada.xlsx"],
+  "sheet_name": "CONTROLE QUILOMETRAGEM",
+  "columns": [
+    "DESCRIÇÃO DO STATUS",
+    "ID RESPOSTA",
+    "NOME",
+    "TIPO DE USUÁRIO",
+    "UNIDADE",
+    "REGIÃO",
+    "DATA INÍCIO",
+    "DATA CONCLUSÃO",
+    "COORDENADA GPS INICIAL",
+    "VALOR ODOMETRO INICIAL",
+    "COORDENADA GPS FINAL",
+    "VALOR ODOMETRO FINAL",
+    "MOTIVO",
+    "CENTRO DE CUSTO",
+    "DISTÂNCIA HODÔMETRO",
+    "VALIDAÇÃO",
+    "PERCENTUAL DIFERENÇA %",
+    "DISTÂNCIA GPS",
+    "STATUS DA ROTA",
+    "LINK DA ROTA"
+  ],
+  "legacy_aliases": {
+    "ID REPOSTA": "ID RESPOSTA",
+    "COORDENADA GPG INICIAL": "COORDENADA GPS INICIAL"
+  }
+}
