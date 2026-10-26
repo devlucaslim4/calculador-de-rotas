@@ -23,9 +23,22 @@ from checklist_transform import (
 )
 from dashboard import dataframe_from_excel, render_dashboard, render_route_map
 from route_processor import SpreadsheetError, output_filename, process_workbook
+from ui_theme import (
+    apply_theme,
+    render_empty_state,
+    render_header,
+    render_result_callout,
+    render_section_header,
+    render_sidebar,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-st.set_page_config(page_title="Calculador de Rotas", layout="wide")
+st.set_page_config(
+    page_title="Calculador de Rotas",
+    page_icon=":material/route:",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
 
 def _reset_processed_result() -> None:
@@ -204,178 +217,48 @@ def _render_route_preview(preview) -> None:
     )
 
 
-light_mode = bool(st.session_state.get("light_mode", False))
-
-st.markdown(
-    """
-    <style>
-    .stApp { background: radial-gradient(circle at 35% -10%, #172554 0%, #080b13 34%, #040507 78%); }
-    [data-testid="stHeader"] { background: rgba(4,5,7,.82); backdrop-filter: blur(18px); }
-    [data-testid="stSidebar"] { background: #080b12; border-right: 1px solid #1d2636; }
-    [data-testid="stFileUploaderDropzone"] { background: #0c1017; border-color: #242b38; }
-    .block-container { max-width: 1320px; padding-top: 2rem; padding-bottom: 5rem; }
-    [data-testid="stFileUploader"], [data-testid="stAlert"], div[data-testid="stMetric"] {
-        background: rgba(12,16,24,.88); border: 1px solid #202a3a; border-radius: 18px;
-        padding: 1rem; box-shadow: 0 14px 36px rgba(0,0,0,.20);
-    }
-    div[data-testid="stMetric"] { transition: transform .18s ease, border-color .18s ease; }
-    div[data-testid="stMetric"]:hover { transform: translateY(-2px); border-color: #3b82f6; }
-    h1, h2, h3 { letter-spacing: -.035em; }
-    .subtitle { color: #aeb8c8; font-size: 1.05rem; line-height: 1.65; max-width: 760px; margin-bottom: 1.8rem; }
-    .file-name { color: #cbd5e1; background: #0b0e14; border: 1px solid #202633; padding: .7rem 1rem; border-radius: 12px; margin: .5rem 0 1rem; }
-    .requirements { margin-top: 2rem; padding: 1.25rem 1.4rem; border: 1px solid #202633; border-radius: 16px; background: #090c11; color: #aeb8c8; }
-    .requirements code { color: #93c5fd; }
-    .stButton > button, .stDownloadButton > button { border-radius: 12px; min-height: 3rem; font-weight: 700; }
-    .stButton > button[kind="primary"], .stDownloadButton > button[kind="primary"] {
-        border: 0; color: white; background: linear-gradient(110deg, #2563eb, #4f46e5 60%, #7c3aed);
-        box-shadow: 0 10px 28px rgba(37,99,235,.28);
-    }
-    .stButton > button[kind="primary"]:hover, .stDownloadButton > button[kind="primary"]:hover {
-        filter: brightness(1.08); transform: translateY(-1px);
-    }
-    [data-testid="stTabs"] [data-baseweb="tab-list"] { gap: .5rem; }
-    [data-testid="stTabs"] button { border-radius: 12px; padding-left: 1.2rem; padding-right: 1.2rem; }
-    [data-testid="stDataFrame"] { border: 1px solid #202a3a; border-radius: 16px; overflow: hidden; }
-    [data-testid="stVerticalBlockBorderWrapper"] { border-color: #202a3a; border-radius: 20px; }
-    .hero-shell {
-        position: relative; overflow: hidden; padding: 1.35rem 1.6rem; margin-bottom: 1rem;
-        border: 1px solid #27344a; border-radius: 24px;
-        background: linear-gradient(125deg, rgba(15,23,42,.96), rgba(17,24,39,.84) 55%, rgba(30,27,75,.82));
-        box-shadow: 0 24px 60px rgba(0,0,0,.28);
-    }
-    .hero-shell:after {
-        content: ""; position: absolute; width: 340px; height: 340px; right: -120px; top: -180px;
-        border-radius: 50%; background: radial-gradient(circle, rgba(96,165,250,.26), rgba(79,70,229,0) 68%);
-    }
-    .hero-kicker { color: #93c5fd; font-size: .78rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
-    .hero-copy { color: #b7c4d8; font-size: 1rem; line-height: 1.55; max-width: 700px; margin-top: .45rem; }
-    .sidebar-brand { padding: .45rem 0 1rem; }
-    .sidebar-brand strong { display: block; color: #f8fafc; font-size: 1.12rem; }
-    .sidebar-brand span { color: #8290a6; font-size: .86rem; }
-    .flow-step { display: flex; align-items: center; gap: .7rem; padding: .65rem .1rem; color: #8290a6; font-size: .9rem; }
-    .flow-dot { width: 1.65rem; height: 1.65rem; flex: 0 0 1.65rem; display: grid; place-items: center; border: 1px solid #334155; border-radius: 50%; font-weight: 800; font-size: .75rem; }
-    .flow-step.done { color: #bfdbfe; }
-    .flow-step.done .flow-dot { color: white; border-color: #3b82f6; background: #2563eb; }
-    .section-intro { color: #8fa0b7; margin: -.3rem 0 1rem; }
-    .eyebrow { color: #60a5fa; font-size: .78rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; margin-top: .4rem; }
-    .result-callout { padding: 1.1rem 1.2rem; margin: .5rem 0 1rem; border-radius: 16px; border: 1px solid rgba(52,211,153,.32); background: rgba(6,78,59,.14); color: #d1fae5; }
-    [data-testid="stSegmentedControl"] { margin-bottom: .75rem; }
-    [data-testid="stSegmentedControl"] button { min-height: 2.8rem; }
-    button[data-testid="stBaseButton-segmented_controlActive"] {
-        color: #bfdbfe; border-color: #3b82f6; background: rgba(37,99,235,.16);
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-if light_mode:
-    st.markdown(
-        """
-        <style>
-        .stApp { background: #f4f7fb; color: #172033; }
-        [data-testid="stHeader"] { background: #f4f7fb; border-bottom: 1px solid #d7e0ec; }
-        [data-testid="stSidebar"] { background: #ffffff; border-right-color: #d7e0ec; }
-        .stApp p, .stApp label, .stApp h1, .stApp h2, .stApp h3 { color: #172033; }
-        .subtitle { color: #526175; }
-        [data-testid="stFileUploader"], [data-testid="stAlert"], div[data-testid="stMetric"],
-        .requirements { background: rgba(255,255,255,.96); border-color: #d7e0ec; color: #526175; }
-        .file-name { color: #26364c; background: #ffffff; border-color: #d7e0ec; }
-        [data-baseweb="select"] > div, [data-baseweb="input"] > div,
-        [data-baseweb="base-input"], [data-baseweb="popover"] > div {
-            background: #ffffff !important; color: #172033 !important; border-color: #aebdd0 !important;
-        }
-        [data-baseweb="select"] input, [data-baseweb="input"] input,
-        [data-baseweb="select"] span { color: #172033 !important; }
-        [data-baseweb="select"] svg, [data-baseweb="input"] svg { fill: #334155 !important; }
-        .stButton > button, .stDownloadButton > button {
-            background: #ffffff; color: #172033; border: 1px solid #9fb0c5;
-        }
-        .stButton > button:hover, .stDownloadButton > button:hover {
-            color: #1d4ed8; border-color: #2563eb; background: #eff6ff;
-        }
-        [data-testid="stDataFrame"] { border: 1px solid #cbd5e1; border-radius: 12px; }
-        [data-testid="stMetricValue"], [data-testid="stMetricLabel"] { color: #172033; }
-        [data-testid="stCaptionContainer"] p { color: #526175 !important; }
-        [data-testid="stFileUploaderDropzone"] { background: #ffffff; border-color: #aebdd0; }
-        [data-testid="stFileUploaderDropzone"] span,
-        [data-testid="stFileUploaderDropzone"] small { color: #334155 !important; }
-        [data-testid="stFileUploaderDropzone"] svg { color: #2563eb; fill: #2563eb; }
-        [data-testid="stFileUploaderDropzone"] button {
-            background: #2563eb !important; color: #ffffff !important; border-color: #2563eb !important;
-        }
-        [data-testid="stFileUploaderDropzone"] button * { color: #ffffff !important; }
-        button[data-testid="stBaseButton-segmented_control"] {
-            background: #ffffff !important; color: #172033 !important; border-color: #aebdd0 !important;
-        }
-        button[data-testid="stBaseButton-segmented_controlActive"] {
-            background: #2563eb !important; color: #ffffff !important; border-color: #2563eb !important;
-        }
-        button[data-testid="stBaseButton-segmented_controlActive"] * { color: #ffffff !important; }
-        .hero-shell { background: linear-gradient(125deg, #ffffff, #f5f8ff 60%, #eef2ff); border-color: #c9d7eb; box-shadow: 0 20px 50px rgba(30,64,175,.10); }
-        .sidebar-brand strong { color: #172033; }
-        .hero-copy, .sidebar-brand span, .section-intro, .flow-step { color: #526175; }
-        .flow-step.done { color: #1d4ed8; }
-        .result-callout { color: #065f46; background: #ecfdf5; border-color: #a7f3d0; }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-st.markdown(
-    """
-    <div class="hero-shell">
-      <div class="hero-main">
-        <div class="hero-kicker">Controle de quilometragem</div>
-        <div class="hero-copy">Importe os checklists, calcule distâncias GPS, compare com o hodômetro e baixe uma planilha pronta para conferência.</div>
-      </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+token, category_id, timezone_name, item_mapping = _checklist_settings()
+light_mode = False
+apply_theme()
+render_header(api_configured=bool(token))
 
 with st.sidebar:
-    st.markdown(
-        '<div class="sidebar-brand"><strong>Calculador de Rotas</strong><span>Checklist Fácil para Excel tratado</span></div>',
-        unsafe_allow_html=True,
-    )
-    st.toggle("Tema claro", key="light_mode", help="Alterna a aparência da aplicação")
-    st.divider()
-    st.caption("FLUXO")
     imported = "api_import" in st.session_state or "upload_token" in st.session_state
     calculated = "result" in st.session_state
-    st.markdown(
-        f"""
-        <div class="flow-step done"><span class="flow-dot">1</span><span>Escolher a origem</span></div>
-        <div class="flow-step {'done' if imported else ''}"><span class="flow-dot">2</span><span>Importar os dados</span></div>
-        <div class="flow-step {'done' if calculated else ''}"><span class="flow-dot">3</span><span>Calcular as rotas</span></div>
-        <div class="flow-step {'done' if calculated else ''}"><span class="flow-dot">4</span><span>Baixar o Excel</span></div>
-        """,
-        unsafe_allow_html=True,
-    )
+    render_sidebar(imported=imported, calculated=calculated)
 
-route_tab, map_tab, analysis_tab = st.tabs(["Calcular Rotas", "Mapa 3D", "Análise de Dados"])
+route_tab, map_tab, analysis_tab = st.tabs(["Operação", "Mapa de rotas", "Indicadores"])
 
 with route_tab:
-    st.markdown('<div class="eyebrow">Etapa 1</div>', unsafe_allow_html=True)
-    st.subheader("Escolha como deseja começar")
-    st.markdown(
-        '<div class="section-intro">Importe direto do Checklist Fácil ou processe uma planilha que você já possui.</div>',
-        unsafe_allow_html=True,
-    )
-    source = st.segmented_control(
-        "Origem dos dados",
-        ("Importar do Checklist Fácil", "Enviar planilha Excel"),
-        default="Importar do Checklist Fácil",
-        width="stretch",
-        label_visibility="collapsed",
-    )
+    with st.container(border=True):
+        render_section_header(
+            "01",
+            "Escolha a origem dos dados",
+            "Importe diretamente do Checklist Fácil ou processe uma planilha Excel já existente.",
+        )
+        source = st.segmented_control(
+            "Origem dos dados",
+            ("Importar do Checklist Fácil", "Enviar planilha Excel"),
+            default="Importar do Checklist Fácil",
+            width="stretch",
+            label_visibility="collapsed",
+        )
     if st.session_state.get("last_source") != source:
         _reset_processed_result()
         st.session_state["last_source"] = source
 
     if source == "Enviar planilha Excel":
-        uploaded_file = st.file_uploader("Envie uma planilha Excel (.xlsx)", type=["xlsx"], max_upload_size=25)
+        render_section_header(
+            "02",
+            "Importe e processe a planilha",
+            "Selecione um arquivo XLSX de até 25 MB. A validação ocorre antes do cálculo das rotas.",
+        )
+        uploaded_file = st.file_uploader(
+            "Envie uma planilha Excel (.xlsx)",
+            type=["xlsx"],
+            max_upload_size=25,
+            help="O arquivo precisa conter as coordenadas inicial e final na primeira linha da aba ativa.",
+        )
 
         if uploaded_file is not None:
             upload_token = (uploaded_file.name, uploaded_file.size)
@@ -395,18 +278,16 @@ with route_tab:
                 else:
                     _calculate_and_store(uploaded_file.getvalue(), uploaded_file.name)
     else:
-        token, category_id, timezone_name, item_mapping = _checklist_settings()
         try:
             now = datetime.now(ZoneInfo(timezone_name))
         except Exception:
             timezone_name = DEFAULT_TIMEZONE
             now = datetime.now(ZoneInfo(timezone_name))
 
-        st.markdown('<div class="eyebrow">Etapa 2</div>', unsafe_allow_html=True)
-        st.subheader("Defina o período da consulta")
-        st.markdown(
-            '<div class="section-intro">Buscaremos somente os checklists concluídos e calcularemos todas as rotas válidas em lote.</div>',
-            unsafe_allow_html=True,
+        render_section_header(
+            "02",
+            "Defina o período da consulta",
+            "Somente checklists concluídos serão importados; as rotas válidas serão calculadas em lote.",
         )
         left, right = st.columns(2)
         month_names = {
@@ -522,19 +403,18 @@ with route_tab:
 
     if "result" in st.session_state:
         result = st.session_state["result"]
-        st.markdown('<div class="eyebrow">Etapa 3</div>', unsafe_allow_html=True)
-        st.subheader("Resultado pronto para download")
+        render_section_header(
+            "03",
+            "Resultados e exportação",
+            "Confira os indicadores da execução e baixe o arquivo final para análise.",
+        )
         coverage = (result.calculated / result.total * 100) if result.total else 0
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("Total de rotas", result.total)
         col2.metric("Calculadas", result.calculated)
         col3.metric("Não calculadas", result.failed)
         col4.metric("Taxa de sucesso", f"{coverage:.1f}%")
-        st.markdown(
-            f'<div class="result-callout"><strong>{result.calculated} rota(s) pronta(s).</strong> '
-            'O arquivo inclui coordenadas, distância GPS, hodômetro, percentual de diferença e links clicáveis.</div>',
-            unsafe_allow_html=True,
-        )
+        render_result_callout(result.calculated)
         st.download_button(
             st.session_state.get("result_download_label", "Baixar planilha processada"),
             data=result.workbook,
@@ -557,13 +437,23 @@ with route_tab:
 
 with analysis_tab:
     if "processed_df" not in st.session_state:
-        st.info("Processe uma planilha na aba Calcular Rotas. A análise será exibida automaticamente aqui.")
+        render_empty_state(
+            "Indicadores ainda não disponíveis",
+            "Conclua o processamento na aba Operação para visualizar as análises.",
+        )
     else:
-        st.header("Análise das Rotas")
+        render_section_header(
+            "03",
+            "Indicadores da operação",
+            "Analise quilometragem, produtividade, divergências e qualidade dos dados processados.",
+        )
         render_dashboard(st.session_state["processed_df"], st.session_state["original_name"], light_mode)
 
 with map_tab:
     if "processed_df" not in st.session_state:
-        st.info("Processe uma planilha na aba Calcular Rotas para visualizar os trajetos no mapa 3D.")
+        render_empty_state(
+            "Mapa aguardando rotas",
+            "Conclua o processamento na aba Operação para explorar os trajetos.",
+        )
     else:
         render_route_map(st.session_state["processed_df"], light_mode)

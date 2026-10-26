@@ -24,8 +24,9 @@ from analysis_engine import (
 )
 from report_export import analysis_pdf
 from route_processor import RouteGeometry, RouteGeometryError, fetch_route_geometry, parse_coordinate
+from ui_theme import COLORS, render_section_header
 
-COLOR = "#3B82F6"
+COLOR = COLORS["primary"]
 WEEKDAYS = {0: "Segunda", 1: "Terça", 2: "Quarta", 3: "Quinta", 4: "Sexta", 5: "Sábado", 6: "Domingo"}
 DASHBOARD_FILTER_FIELDS = ("usuario", "unidade", "regiao", "motivo", "status")
 
@@ -93,9 +94,12 @@ def render_dashboard(dataframe: pd.DataFrame, original_name: str, light_mode: bo
 def render_route_map(dataframe: pd.DataFrame, light_mode: bool = False) -> None:
     """Mostra uma rota rodoviária por vez em perspectiva 3D."""
 
-    st.header("Mapa 3D das rotas")
+    render_section_header(
+        "03",
+        "Mapa interativo das rotas",
+        "Filtre por usuário, escolha uma rota e acompanhe o trajeto calculado em uma experiência 3D.",
+    )
     st.caption(
-        "Filtre por usuário, escolha uma rota e carregue o trajeto. "
         "Arraste para mover, use a roda para aplicar zoom e Ctrl + arraste para inclinar ou girar."
     )
     analysis = prepare_analysis(dataframe)
@@ -218,7 +222,7 @@ def render_route_map(dataframe: pd.DataFrame, light_mode: bool = False) -> None:
         _render_explorable_3d_map(path, label, geometry, origin, destination, light_mode, signature)
     st.caption(
         f"Traçado detalhado: {geometry.distance_km:.2f} km • tempo estimado: "
-        f"{geometry.duration_minutes:.0f} min • verde = início • vermelho = destino"
+        f"{geometry.duration_minutes:.0f} min • menta = início • âmbar = destino"
     )
 
 
@@ -235,21 +239,21 @@ def _render_explorable_3d_map(
     marker_height = max(180.0, min(4_500.0, geometry.distance_km * 70))
     route_data = [{
         "path": path,
-        "color": [59, 130, 246, 230],
+        "color": [86, 207, 173, 230],
         "label": label,
         "details": f"{geometry.distance_km:.2f} km • {geometry.duration_minutes:.0f} min",
     }]
     marker_data = [
         {
             "position": path[0],
-            "color": [16, 185, 129, 225],
+            "color": [86, 207, 173, 225],
             "elevation": marker_height,
             "label": "Início",
             "details": f"{origin[0]:.6f}, {origin[1]:.6f}",
         },
         {
             "position": path[-1],
-            "color": [244, 63, 94, 225],
+            "color": [232, 190, 105, 225],
             "elevation": marker_height,
             "label": "Destino",
             "details": f"{destination[0]:.6f}, {destination[1]:.6f}",
@@ -287,8 +291,8 @@ def _render_explorable_3d_map(
         tooltip={
             "html": "<b>{label}</b><br>{details}",
             "style": {
-                "backgroundColor": "#0f172a",
-                "color": "#f8fafc",
+                "backgroundColor": COLORS["surface_deep"],
+                "color": COLORS["text"],
                 "fontSize": "13px",
             },
         },
@@ -308,9 +312,9 @@ def _animated_route_figure(
     longitudes = [point[0] for point in sampled]
     latitudes = [point[1] for point in sampled]
     view_state = _map_view_state(path)
-    muted_route = "rgba(96, 165, 250, 0.32)" if not light_mode else "rgba(37, 99, 235, 0.28)"
-    panel_color = "#0f172a" if not light_mode else "#ffffff"
-    text_color = "#f8fafc" if not light_mode else "#172033"
+    muted_route = "rgba(86, 207, 173, 0.28)" if not light_mode else "rgba(54, 184, 149, 0.24)"
+    panel_color = COLORS["surface_deep"] if not light_mode else "#ffffff"
+    text_color = COLORS["text"] if not light_mode else COLORS["background"]
 
     figure = go.Figure()
     figure.add_trace(
@@ -328,7 +332,7 @@ def _animated_route_figure(
             lon=[longitudes[0]],
             lat=[latitudes[0]],
             mode="lines",
-            line={"width": 7, "color": "#3b82f6"},
+            line={"width": 7, "color": COLOR},
             hoverinfo="skip",
             name="Trecho percorrido",
         )
@@ -339,7 +343,7 @@ def _animated_route_figure(
             lat=[latitudes[0], latitudes[-1]],
             mode="markers",
             text=["INÍCIO", "DESTINO"],
-            marker={"size": [17, 19], "color": ["#10b981", "#f43f5e"]},
+            marker={"size": [17, 19], "color": [COLOR, "#E8BE69"]},
             hovertemplate="<b>%{text}</b><br>%{lat:.6f}, %{lon:.6f}<extra></extra>",
             name="Pontos da rota",
         )
@@ -351,10 +355,10 @@ def _animated_route_figure(
             mode="markers+text",
             text=["CARRO"],
             textposition="top center",
-            textfont={"size": 12, "color": "#fbbf24"},
+            textfont={"size": 12, "color": "#E8BE69"},
             marker={
                 "size": 20,
-                "color": "#f59e0b",
+                "color": "#E8BE69",
                 "opacity": 1,
                 "allowoverlap": True,
             },
@@ -374,7 +378,7 @@ def _animated_route_figure(
                         lon=longitudes[: index + 1],
                         lat=latitudes[: index + 1],
                         mode="lines",
-                        line={"width": 7, "color": "#3b82f6"},
+                        line={"width": 7, "color": COLOR},
                         hoverinfo="skip",
                     ),
                     go.Scattermap(
@@ -383,10 +387,10 @@ def _animated_route_figure(
                         mode="markers+text",
                         text=["CARRO"],
                         textposition="top center",
-                        textfont={"size": 12, "color": "#fbbf24"},
+                        textfont={"size": 12, "color": "#E8BE69"},
                         marker={
                             "size": 20,
-                            "color": "#f59e0b",
+                            "color": "#E8BE69",
                             "opacity": 1,
                             "allowoverlap": True,
                         },
@@ -425,7 +429,7 @@ def _animated_route_figure(
             "xanchor": "left",
             "yanchor": "bottom",
             "bgcolor": panel_color,
-            "bordercolor": "#3b82f6",
+            "bordercolor": COLOR,
             "font": {"color": text_color},
             "buttons": [
                 {
@@ -593,12 +597,28 @@ def _chart(frame: pd.DataFrame, title: str, kind: str = "bar", x: str | None = N
     if kind == "line":
         figure = px.line(frame, x=x, y=y, markers=True, title=title, color_discrete_sequence=[COLOR])
     elif kind == "pie":
-        figure = px.pie(frame, names=x, values=y, hole=.45, title=title, color_discrete_sequence=px.colors.sequential.Blues_r)
+        figure = px.pie(
+            frame,
+            names=x,
+            values=y,
+            hole=.52,
+            title=title,
+            color_discrete_sequence=["#56CFAD", "#3FAE9A", "#46738A", "#31566E", "#E8BE69"],
+        )
     elif kind == "scatter":
         figure = px.scatter(frame, x=x, y=y, title=title, color=color, color_discrete_sequence=[COLOR], opacity=.72)
     else:
         figure = px.bar(frame, x=x, y=y, title=title, color_discrete_sequence=[COLOR])
-    figure.update_layout(template="plotly_white" if light_mode else "plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", margin=dict(l=10, r=10, t=55, b=10))
+    figure.update_layout(
+        template="plotly_white" if light_mode else "plotly_dark",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font={"color": COLORS["muted"] if not light_mode else COLORS["background"]},
+        margin=dict(l=10, r=10, t=55, b=10),
+        hoverlabel={"bgcolor": COLORS["surface_deep"], "font_color": COLORS["text"]},
+    )
+    figure.update_xaxes(gridcolor="rgba(167,183,200,.10)", zerolinecolor="rgba(167,183,200,.12)")
+    figure.update_yaxes(gridcolor="rgba(167,183,200,.10)", zerolinecolor="rgba(167,183,200,.12)")
     st.plotly_chart(figure, width="stretch")
 
 
@@ -702,7 +722,7 @@ def _render_data_table(analysis: AnalysisData, filtered: pd.DataFrame) -> None:
     if "Diferença (%)" in visible:
         column_config["Diferença (%)"] = st.column_config.NumberColumn(format="%.2f%%")
     if "Rota" in visible:
-        column_config["Rota"] = st.column_config.LinkColumn(display_text="Abrir rota ↗")
+        column_config["Rota"] = st.column_config.LinkColumn(display_text="Abrir rota")
     st.dataframe(visible, width="stretch", hide_index=True, height=460, column_config=column_config)
 
 

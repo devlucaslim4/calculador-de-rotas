@@ -66,7 +66,7 @@ def test_animated_map_contains_car_and_playback_frames():
 
     assert len(figure.frames) == 3
     assert figure.data[3].text == ("CARRO",)
-    assert figure.data[3].marker.color == "#f59e0b"
+    assert figure.data[3].marker.color == "#E8BE69"
     assert figure.frames[-1].data[1].lon == (path[-1][0],)
     assert figure.frames[-1].traces == (1, 3)
     assert len(figure.layout.updatemenus[0].buttons) == 3

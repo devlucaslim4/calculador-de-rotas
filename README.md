@@ -24,7 +24,7 @@ O projeto transforma um processo local em uma aplicação web pronta para uso, s
 - Barra de progresso real e métricas de sucesso e falha.
 - Preservação da ordem original das linhas.
 - Geração de links clicáveis para o Google Maps.
-- Interface escura, responsiva e preparada para o Streamlit Community Cloud.
+- Interface logística escura, responsiva e preparada para o Streamlit Community Cloud.
 - Processamento isolado em memória, sem armazenamento permanente das planilhas.
 - Dashboard agrupado na aba `Análise de dados`, carregado automaticamente após o processamento e sem repetir consultas ao OSRM.
 - Filtros por período, usuário, unidade, região, motivo, centro de custo e status, conforme disponibilidade.
@@ -45,6 +45,8 @@ O projeto transforma um processo local em uma aplicação web pronta para uso, s
 
 ```text
 .
+├── .github/
+│   └── copilot-instructions.md
 ├── .streamlit/
 │   └── config.toml
 ├── tests/
@@ -58,14 +60,16 @@ O projeto transforma um processo local em uma aplicação web pronta para uso, s
 ├── checklist_transform.py
 ├── dashboard.py
 ├── docs/
-│   └── checklist-facil.md
+│   ├── checklist-facil.md
+│   └── manual-de-uso.md
 ├── route_processor.py
+├── ui_theme.py
 ├── requirements.txt
 ├── .gitignore
 └── README.md
 ```
 
-`app.py` organiza o fluxo principal e o estado da sessão. `checklist_api.py` consulta a API com paginação, retentativas e validação de completude. `checklist_transform.py` mapeia os dados para o padrão ERP e gera o Excel. `route_processor.py` mantém a validação da planilha, as consultas ao OSRM e a geração do arquivo final. `analysis_engine.py` trata os indicadores, a auditoria e os relatórios.
+`app.py` organiza o fluxo principal e o estado da sessão. `ui_theme.py` concentra a identidade visual e os componentes exclusivamente apresentacionais. `checklist_api.py` consulta a API com paginação, retentativas e validação de completude. `checklist_transform.py` mapeia os dados para o padrão ERP e gera o Excel. `route_processor.py` mantém a validação da planilha, as consultas ao OSRM e a geração do arquivo final. `analysis_engine.py` trata os indicadores, a auditoria e os relatórios.
 
 ## Instalação local
 
@@ -214,6 +218,8 @@ Para grandes volumes, disponibilidade garantida ou uso comercial crítico, utili
 ## Documentação da integração
 
 O mapeamento completo de campos, os endpoints utilizados, o tratamento dos limites da API e as pendências para validação com dados reais estão em [`docs/checklist-facil.md`](docs/checklist-facil.md).
+
+O passo a passo operacional está em [`docs/manual-de-uso.md`](docs/manual-de-uso.md). Agentes do GitHub Copilot recebem automaticamente as orientações de arquitetura e segurança definidas em [`.github/copilot-instructions.md`](.github/copilot-instructions.md).
 
 ## Licença
 
