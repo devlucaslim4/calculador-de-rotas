@@ -183,8 +183,8 @@ def apply_theme() -> None:
             border-radius: 10px;
             color: #0D1825;
             background: var(--route-primary);
-            font-weight: 900;
         }
+        .sidebar-mark svg { width: 1.3rem; height: 1.3rem; }
         .sidebar-brand strong { display: block; color: var(--route-text); font-size: .98rem; }
         .sidebar-brand span { display: block; color: var(--route-subtle); font-size: .76rem; }
         .sidebar-label {
@@ -471,9 +471,9 @@ def render_sidebar(*, imported: bool, calculated: bool) -> None:
     """Exibe a identidade compacta e o progresso real da sessão."""
 
     st.markdown(
-        """
+        f"""
         <div class="sidebar-brand">
-          <div class="sidebar-mark">R</div>
+          <div class="sidebar-mark">{_logo_svg()}</div>
           <div><strong>Calculador de Rotas</strong><span>Central de operações</span></div>
         </div>
         <div class="sidebar-label">Fluxo da operação</div>

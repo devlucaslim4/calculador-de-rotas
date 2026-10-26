@@ -65,9 +65,7 @@ O mapa fica disponível depois que uma planilha é processada.
 3. Escolha uma rota.
 4. Confira usuário, distância GPS, distância do hodômetro e diferença.
 5. Clique em **Carregar experiência da rota**.
-6. Escolha entre:
-   - **Viagem animada:** inicia, pausa ou reinicia o deslocamento do veículo.
-   - **Explorar em 3D:** permite mover, ampliar, inclinar e girar o mapa.
+6. Use os controles do mapa para iniciar, pausar ou reiniciar o deslocamento animado do veículo.
 
 O traçado detalhado é carregado somente para a rota selecionada, reduzindo o tempo inicial de processamento.
 

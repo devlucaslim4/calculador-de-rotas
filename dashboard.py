@@ -198,106 +198,22 @@ def render_route_map(dataframe: pd.DataFrame, light_mode: bool = False) -> None:
 
     path = [list(point) for point in geometry.path]
     label = _map_route_label(row, analysis)
-    view_mode = st.segmented_control(
-        "Modo de visualização",
-        ("Viagem animada", "Explorar em 3D"),
-        default="Viagem animada",
-        key="route_map_view_mode",
-        width="stretch",
+    st.markdown(
+        '<div class="result-callout"><strong>Viagem pronta.</strong> '
+        'Use os controles no mapa para iniciar, pausar ou reiniciar o percurso.</div>',
+        unsafe_allow_html=True,
     )
-    if view_mode == "Viagem animada":
-        st.markdown(
-            '<div class="result-callout"><strong>Viagem pronta.</strong> '
-            'Use os controles no mapa para iniciar, pausar ou reiniciar o percurso.</div>',
-            unsafe_allow_html=True,
-        )
-        figure = _animated_route_figure(path, label, geometry, light_mode)
-        st.plotly_chart(
-            figure,
-            width="stretch",
-            config={"displaylogo": False, "displayModeBar": False, "scrollZoom": True},
-            key=f"animated_route_{signature[0]}_{signature[1]}",
-        )
-    else:
-        _render_explorable_3d_map(path, label, geometry, origin, destination, light_mode, signature)
+    figure = _animated_route_figure(path, label, geometry, light_mode)
+    st.plotly_chart(
+        figure,
+        width="stretch",
+        config={"displaylogo": False, "displayModeBar": False, "scrollZoom": True},
+        key=f"animated_route_{signature[0]}_{signature[1]}",
+    )
     st.caption(
         f"Traçado detalhado: {geometry.distance_km:.2f} km • tempo estimado: "
         f"{geometry.duration_minutes:.0f} min • menta = início • âmbar = destino"
     )
-
-
-def _render_explorable_3d_map(
-    path: list[list[float]],
-    label: str,
-    geometry: RouteGeometry,
-    origin: tuple[float, float],
-    destination: tuple[float, float],
-    light_mode: bool,
-    signature: tuple[str, str],
-) -> None:
-    marker_radius = max(35.0, min(650.0, geometry.distance_km * 12))
-    marker_height = max(180.0, min(4_500.0, geometry.distance_km * 70))
-    route_data = [{
-        "path": path,
-        "color": [86, 207, 173, 230],
-        "label": label,
-        "details": f"{geometry.distance_km:.2f} km • {geometry.duration_minutes:.0f} min",
-    }]
-    marker_data = [
-        {
-            "position": path[0],
-            "color": [86, 207, 173, 225],
-            "elevation": marker_height,
-            "label": "Início",
-            "details": f"{origin[0]:.6f}, {origin[1]:.6f}",
-        },
-        {
-            "position": path[-1],
-            "color": [232, 190, 105, 225],
-            "elevation": marker_height,
-            "label": "Destino",
-            "details": f"{destination[0]:.6f}, {destination[1]:.6f}",
-        },
-    ]
-    layers = [
-        pdk.Layer(
-            "PathLayer",
-            route_data,
-            get_path="path",
-            get_color="color",
-            get_width=6,
-            width_units="pixels",
-            width_min_pixels=4,
-            pickable=True,
-        ),
-        pdk.Layer(
-            "ColumnLayer",
-            marker_data,
-            get_position="position",
-            get_fill_color="color",
-            get_elevation="elevation",
-            radius=marker_radius,
-            disk_resolution=32,
-            extruded=True,
-            pickable=True,
-        ),
-    ]
-    view_state = _map_view_state(path)
-    deck = pdk.Deck(
-        layers=layers,
-        initial_view_state=view_state,
-        map_style=pdk.map_styles.LIGHT if light_mode else pdk.map_styles.DARK,
-        map_provider="carto",
-        tooltip={
-            "html": "<b>{label}</b><br>{details}",
-            "style": {
-                "backgroundColor": COLORS["surface_deep"],
-                "color": COLORS["text"],
-                "fontSize": "13px",
-            },
-        },
-    )
-    st.pydeck_chart(deck, width="stretch", height=620, key=f"route_map_{signature[0]}_{signature[1]}")
 
 
 def _animated_route_figure(
