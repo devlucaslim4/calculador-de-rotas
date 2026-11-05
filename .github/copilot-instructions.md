@@ -27,6 +27,9 @@ Este projeto é uma aplicação Python/Streamlit que importa checklists concluí
 | `analysis_engine.py` | Normalização analítica, filtros, métricas, auditoria e relatório Excel. |
 | `dashboard.py` | Componentes de mapa, gráficos, filtros e tabelas. |
 | `report_export.py` | Relatório PDF. |
+| `services/calculador.py` | Orquestra o motor existente para clientes Streamlit e REST, sem duplicar regras. |
+| `api/` | FastAPI, contratos JSON, autenticação e entrega temporária de arquivos. |
+| `openapi-copilot.json` | Contrato Swagger 2.0 importado pelo Microsoft Copilot Studio. |
 | `tests/` | Contratos automatizados das regras existentes. |
 
 ## Contratos de negócio importantes
@@ -69,7 +72,7 @@ Preencha `.streamlit/secrets.toml` localmente. Nunca reproduza o conteúdo do to
 ## Validação obrigatória
 
 ```powershell
-python -m compileall -q app.py dashboard.py ui_theme.py
+python -m compileall -q app.py dashboard.py ui_theme.py api services
 python -m pytest -q
 ```
 
@@ -87,5 +90,6 @@ Quando houver alterações visuais, também valide:
 - `README.md`: visão geral, instalação e publicação.
 - `docs/manual-de-uso.md`: manual operacional do usuário.
 - `docs/checklist-facil.md`: detalhes da integração e do mapeamento da API.
+- `docs/integracao-copilot-studio.md`: FastAPI, hospedagem, Copilot Studio e Teams.
 
 Ao finalizar uma alteração, informe claramente os arquivos modificados, os testes executados e qualquer limitação ou hipótese restante.

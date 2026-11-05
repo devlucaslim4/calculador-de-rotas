@@ -35,6 +35,7 @@ O projeto transforma um processo local em uma aplicação web pronta para uso, s
 
 - Python 3.11+
 - Streamlit
+- FastAPI e Uvicorn
 - pandas
 - openpyxl
 - requests
@@ -49,10 +50,21 @@ O projeto transforma um processo local em uma aplicação web pronta para uso, s
 │   └── copilot-instructions.md
 ├── .streamlit/
 │   └── config.toml
+├── api/
+│   ├── config.py
+│   ├── files.py
+│   ├── main.py
+│   ├── routes.py
+│   ├── schemas.py
+│   └── security.py
+├── services/
+│   └── calculador.py
 ├── tests/
 │   ├── test_analysis_engine.py
 │   ├── test_checklist_api.py
 │   ├── test_checklist_transform.py
+│   ├── test_api.py
+│   ├── test_calculador_service.py
 │   └── test_route_processor.py
 ├── analysis_engine.py
 ├── app.py
@@ -61,15 +73,32 @@ O projeto transforma um processo local em uma aplicação web pronta para uso, s
 ├── dashboard.py
 ├── docs/
 │   ├── checklist-facil.md
+│   ├── integracao-copilot-studio.md
 │   └── manual-de-uso.md
+├── openapi-copilot.json
+├── render.yaml
+├── .env.example
 ├── route_processor.py
 ├── ui_theme.py
 ├── requirements.txt
+├── requirements-dev.txt
 ├── .gitignore
 └── README.md
 ```
 
-`app.py` organiza o fluxo principal e o estado da sessão. `ui_theme.py` concentra a identidade visual e os componentes exclusivamente apresentacionais. `checklist_api.py` consulta a API com paginação, retentativas e validação de completude. `checklist_transform.py` mapeia os dados para o padrão ERP e gera o Excel. `route_processor.py` mantém a validação da planilha, as consultas ao OSRM e a geração do arquivo final. `analysis_engine.py` trata os indicadores, a auditoria e os relatórios.
+`app.py` organiza o fluxo principal e o estado da sessão. `ui_theme.py` concentra a identidade visual e os componentes exclusivamente apresentacionais. `checklist_api.py` consulta a API com paginação, retentativas e validação de completude. `checklist_transform.py` mapeia os dados para o padrão ERP e gera o Excel. `route_processor.py` mantém a validação da planilha, as consultas ao OSRM e a geração do arquivo final. `analysis_engine.py` trata os indicadores, a auditoria e os relatórios. `services/calculador.py` coordena esses mesmos módulos para clientes sem interface. `api/` expõe o serviço via FastAPI sem duplicar regras.
+
+## API para Microsoft Copilot Studio
+
+A API REST compartilha o mesmo motor do Streamlit. Para iniciar localmente, configure as variáveis descritas em `.env.example` e execute:
+
+```powershell
+uvicorn api.main:app --reload --host 127.0.0.1 --port 8000 --no-access-log
+```
+
+O Swagger local fica em `http://localhost:8000/docs`. O arquivo `openapi-copilot.json` é o contrato Swagger 2.0 preparado para importação no Copilot Studio. O tutorial completo de hospedagem, conexão e entrega do Excel no Teams está em [`docs/integracao-copilot-studio.md`](docs/integracao-copilot-studio.md).
+
+O Streamlit Community Cloud continua hospedando apenas a interface. A FastAPI precisa de um serviço HTTPS separado; `render.yaml` fornece um Blueprint inicial para o plano gratuito do Render, sujeito às limitações descritas no manual.
 
 ## Instalação local
 
@@ -183,7 +212,7 @@ pip install -r requirements-dev.txt
 pytest -q
 ```
 
-Os testes cobrem paginação, mês atual e histórico, limites de data no fuso local, autenticação, respostas incompletas, categoria incorreta, deduplicação, transformação, layout do Excel e paridade do cálculo entre upload e API. Também verificam validação de coordenadas, preservação de abas, hiperlinks e relatórios.
+Os testes cobrem paginação, mês atual e histórico, limites de data no fuso local, autenticação, respostas incompletas, categoria incorreta, deduplicação, transformação, layout do Excel e paridade do cálculo entre upload, Streamlit e serviço da API. Também verificam os endpoints FastAPI, links temporários, validação de coordenadas, preservação de abas, hiperlinks e relatórios.
 
 Também são verificados a deduplicação de rotas por ID, o cálculo de hodômetro, os filtros, a auditoria e a abertura do relatório Excel. O limite conservador para uma distância de hodômetro fora do padrão é de 2.000 km por rota e pode ser alterado em `analysis_engine.py`.
 
@@ -219,7 +248,7 @@ Para grandes volumes, disponibilidade garantida ou uso comercial crítico, utili
 
 O mapeamento completo de campos, os endpoints utilizados, o tratamento dos limites da API e as pendências para validação com dados reais estão em [`docs/checklist-facil.md`](docs/checklist-facil.md).
 
-O passo a passo operacional está em [`docs/manual-de-uso.md`](docs/manual-de-uso.md). Agentes do GitHub Copilot recebem automaticamente as orientações de arquitetura e segurança definidas em [`.github/copilot-instructions.md`](.github/copilot-instructions.md).
+O passo a passo operacional está em [`docs/manual-de-uso.md`](docs/manual-de-uso.md). O manual da integração conversacional está em [`docs/integracao-copilot-studio.md`](docs/integracao-copilot-studio.md). Agentes do GitHub Copilot recebem automaticamente as orientações de arquitetura e segurança definidas em [`.github/copilot-instructions.md`](.github/copilot-instructions.md).
 
 ## Licença
 

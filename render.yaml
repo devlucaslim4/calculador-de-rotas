@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: calculador-de-rotas-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn api.main:app --host 0.0.0.0 --port $PORT --no-access-log
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: ROUTES_API_KEY
+        sync: false
+      - key: FILE_SIGNING_SECRET
+        sync: false
+      - key: CHECKLIST_FACIL_API_TOKEN
+        sync: false
+      - key: CHECKLIST_FACIL_CATEGORY_ID
+        value: 2879584
+      - key: CHECKLIST_FACIL_TIMEZONE
+        value: America/Sao_Paulo
+      - key: PUBLIC_API_BASE_URL
+        sync: false
+      - key: FILE_TTL_SECONDS
+        value: 900
+      - key: MAX_GENERATED_FILE_MB
+        value: 25

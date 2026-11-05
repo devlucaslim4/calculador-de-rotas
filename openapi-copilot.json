@@ -1,0 +1,229 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Calculador de Rotas",
+    "description": "Importa checklists concluídos, calcula rotas e entrega a planilha Excel tratada. Use processarPeriodo quando o usuário informar mês e ano; apresente o link retornado em arquivo.url_download quando ele pedir o Excel.",
+    "version": "1.0.0"
+  },
+  "host": "calculador-de-rotas-api.onrender.com",
+  "basePath": "/api",
+  "schemes": ["https"],
+  "consumes": ["application/json"],
+  "produces": ["application/json"],
+  "securityDefinitions": {
+    "apiKeyHeader": {
+      "type": "apiKey",
+      "name": "X-API-Key",
+      "in": "header",
+      "description": "Chave configurada no serviço como ROUTES_API_KEY."
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "verificarSaude",
+        "summary": "Verificar se a API está disponível",
+        "description": "Confirma se o serviço está ativo e se as configurações essenciais existem. Não processa dados.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Estado atual do serviço.",
+            "schema": {"$ref": "#/definitions/HealthResponse"}
+          }
+        }
+      }
+    },
+    "/opcoes": {
+      "get": {
+        "operationId": "listarOpcoes",
+        "summary": "Listar meses, filtros e operações aceitos",
+        "description": "Use quando precisar explicar ao usuário quais parâmetros a integração suporta.",
+        "security": [{"apiKeyHeader": []}],
+        "responses": {
+          "200": {
+            "description": "Opções suportadas pelo motor atual.",
+            "schema": {"$ref": "#/definitions/OpcoesResponse"}
+          },
+          "401": {"description": "Chave inválida.", "schema": {"$ref": "#/definitions/ErroResponse"}}
+        }
+      }
+    },
+    "/processar": {
+      "post": {
+        "operationId": "processarPeriodo",
+        "summary": "Importar checklists, calcular rotas e preparar o Excel",
+        "description": "Use quando o usuário pedir dados, indicadores ou a planilha de um mês. O processamento pode levar algum tempo. Os filtros alteram o resumo e a prévia, mas o Excel preserva todos os registros do período.",
+        "security": [{"apiKeyHeader": []}],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "Período obrigatório e filtros opcionais.",
+            "schema": {"$ref": "#/definitions/ProcessarRequest"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resultado real do processamento. Se arquivo não for nulo, apresente arquivo.url_download como link clicável.",
+            "schema": {"$ref": "#/definitions/ProcessarResponse"}
+          },
+          "401": {"description": "Chave inválida.", "schema": {"$ref": "#/definitions/ErroResponse"}},
+          "422": {"description": "Parâmetros ou dados incompatíveis.", "schema": {"$ref": "#/definitions/ErroResponse"}},
+          "502": {"description": "Falha ao consultar o Checklist Fácil.", "schema": {"$ref": "#/definitions/ErroResponse"}}
+        }
+      }
+    },
+    "/gerar-planilha": {
+      "post": {
+        "operationId": "renovarLinkPlanilha",
+        "summary": "Renovar o link de uma planilha já processada",
+        "description": "Use com o arquivo.id devolvido por processarPeriodo quando o link anterior estiver perto de expirar. Não refaz o cálculo.",
+        "security": [{"apiKeyHeader": []}],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {"$ref": "#/definitions/GerarPlanilhaRequest"}
+          }
+        ],
+        "responses": {
+          "200": {"description": "Novo link temporário.", "schema": {"$ref": "#/definitions/GerarPlanilhaResponse"}},
+          "404": {"description": "Arquivo expirado ou removido.", "schema": {"$ref": "#/definitions/ErroResponse"}}
+        }
+      }
+    },
+    "/arquivos/{file_id}": {
+      "get": {
+        "operationId": "baixarPlanilha",
+        "summary": "Baixar a planilha Excel por link assinado",
+        "description": "Operação usada pelo link entregue ao usuário. O token temporário substitui a chave de API somente neste download.",
+        "security": [],
+        "produces": ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
+        "parameters": [
+          {"name": "file_id", "in": "path", "required": true, "type": "string", "format": "uuid"},
+          {"name": "token", "in": "query", "required": true, "type": "string"}
+        ],
+        "responses": {
+          "200": {"description": "Conteúdo binário da planilha.", "schema": {"type": "file"}},
+          "403": {"description": "Link inválido ou expirado.", "schema": {"$ref": "#/definitions/ErroResponse"}},
+          "404": {"description": "Arquivo indisponível.", "schema": {"$ref": "#/definitions/ErroResponse"}}
+        }
+      }
+    }
+  },
+  "definitions": {
+    "FiltrosAnalise": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "usuario": {"type": "array", "maxItems": 100, "items": {"type": "string", "maxLength": 200}},
+        "unidade": {"type": "array", "maxItems": 100, "items": {"type": "string", "maxLength": 200}},
+        "regiao": {"type": "array", "maxItems": 100, "items": {"type": "string", "maxLength": 200}},
+        "motivo": {"type": "array", "maxItems": 100, "items": {"type": "string", "maxLength": 200}},
+        "centro_custo": {"type": "array", "maxItems": 100, "items": {"type": "string", "maxLength": 200}},
+        "status": {"type": "array", "maxItems": 100, "items": {"type": "string", "maxLength": 200}},
+        "data_inicio": {"type": "string", "format": "date", "description": "Data inicial dentro do mês consultado."},
+        "data_fim": {"type": "string", "format": "date", "description": "Data final dentro do mês consultado."}
+      }
+    },
+    "ProcessarRequest": {
+      "type": "object",
+      "required": ["ano", "mes"],
+      "additionalProperties": false,
+      "properties": {
+        "ano": {"type": "integer", "minimum": 2015, "maximum": 2100, "description": "Ano de conclusão."},
+        "mes": {"type": "integer", "minimum": 1, "maximum": 12, "description": "Mês de conclusão."},
+        "filtros": {"$ref": "#/definitions/FiltrosAnalise"},
+        "limite_previa": {"type": "integer", "minimum": 0, "maximum": 50, "default": 10}
+      }
+    },
+    "Periodo": {
+      "type": "object",
+      "required": ["ano", "mes"],
+      "properties": {"ano": {"type": "integer"}, "mes": {"type": "integer"}}
+    },
+    "Contagens": {
+      "type": "object",
+      "required": ["encontrados", "validos_para_rota", "inconsistentes", "duplicados_consolidados", "rotas_calculadas", "rotas_nao_calculadas"],
+      "properties": {
+        "encontrados": {"type": "integer"},
+        "validos_para_rota": {"type": "integer"},
+        "inconsistentes": {"type": "integer"},
+        "duplicados_consolidados": {"type": "integer"},
+        "rotas_calculadas": {"type": "integer"},
+        "rotas_nao_calculadas": {"type": "integer"}
+      }
+    },
+    "ArquivoTemporario": {
+      "type": "object",
+      "required": ["id", "nome", "url_download", "expira_em"],
+      "properties": {
+        "id": {"type": "string", "format": "uuid"},
+        "nome": {"type": "string"},
+        "url_download": {"type": "string", "format": "uri"},
+        "expira_em": {"type": "string", "format": "date-time"}
+      }
+    },
+    "ProcessarResponse": {
+      "type": "object",
+      "required": ["status", "mensagem", "periodo", "contagens", "indicadores", "previa", "avisos"],
+      "properties": {
+        "status": {"type": "string"},
+        "mensagem": {"type": "string"},
+        "periodo": {"$ref": "#/definitions/Periodo"},
+        "contagens": {"$ref": "#/definitions/Contagens"},
+        "indicadores": {"type": "object", "additionalProperties": true},
+        "previa": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
+        "avisos": {"type": "array", "items": {"type": "string"}},
+        "arquivo": {"$ref": "#/definitions/ArquivoTemporario"}
+      }
+    },
+    "GerarPlanilhaRequest": {
+      "type": "object",
+      "required": ["arquivo_id"],
+      "additionalProperties": false,
+      "properties": {"arquivo_id": {"type": "string", "format": "uuid"}}
+    },
+    "GerarPlanilhaResponse": {
+      "type": "object",
+      "required": ["mensagem", "arquivo"],
+      "properties": {
+        "mensagem": {"type": "string"},
+        "arquivo": {"$ref": "#/definitions/ArquivoTemporario"}
+      }
+    },
+    "HealthResponse": {
+      "type": "object",
+      "required": ["status", "servico", "versao", "configurado"],
+      "properties": {
+        "status": {"type": "string"},
+        "servico": {"type": "string"},
+        "versao": {"type": "string"},
+        "configurado": {"type": "boolean"}
+      }
+    },
+    "OpcoesResponse": {
+      "type": "object",
+      "properties": {
+        "operacoes": {"type": "array", "items": {"type": "string"}},
+        "meses": {"type": "array", "items": {"type": "object"}},
+        "filtros_suportados": {"type": "array", "items": {"type": "string"}},
+        "categoria": {"type": "integer"},
+        "fuso_horario": {"type": "string"},
+        "limite_previa": {"type": "integer"},
+        "validade_link_segundos": {"type": "integer"}
+      }
+    },
+    "ErroResponse": {
+      "type": "object",
+      "required": ["erro", "mensagem"],
+      "properties": {
+        "erro": {"type": "string"},
+        "mensagem": {"type": "string"},
+        "detalhes": {"type": "array", "items": {"type": "object"}}
+      }
+    }
+  }
+}
