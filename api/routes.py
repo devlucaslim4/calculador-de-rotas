@@ -53,7 +53,7 @@ def build_router(
     router = APIRouter(prefix="/api", tags=["Calculador de Rotas"])
 
     async def require_api_key(provided: str | None = Security(api_key_header)) -> None:
-        if not settings.ready:
+        if not settings.connection_ready:
             raise _problem(
                 status.HTTP_503_SERVICE_UNAVAILABLE,
                 "servico_nao_configurado",
@@ -122,6 +122,12 @@ def build_router(
         ),
     )
     async def processar(payload: ProcessarRequest, request: Request) -> ProcessarResponse:
+        if not settings.ready:
+            raise _problem(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "servico_nao_configurado",
+                "A credencial do Checklist Fácil ainda não foi configurada pelo administrador.",
+            )
         current_year = datetime.now(ZoneInfo(settings.timezone_name)).year
         if payload.ano > current_year + 1:
             raise _problem(

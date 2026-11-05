@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 from dataclasses import dataclass
+from dataclasses import replace
 from pathlib import Path
 from urllib.parse import urlsplit
 from uuid import uuid4
@@ -157,6 +158,31 @@ def test_protected_endpoints_reject_missing_or_wrong_key():
     )
     assert response.status_code == 401
     assert response.json()["erro"] == "nao_autorizado"
+
+
+def test_options_remain_available_before_checklist_credential_is_configured():
+    root = _test_path()
+    settings = replace(_settings(root), checklist_api_token="")
+    app = create_app(
+        settings,
+        FakeCalculator(),
+        TemporaryFileStore(root, ttl_seconds=900, max_size_mb=1),
+    )
+
+    options = _sync_request(
+        app, "GET", "/api/opcoes", headers={"X-API-Key": "segredo-copilot"}
+    )
+    assert options.status_code == 200
+    assert "processar_periodo" in options.json()["operacoes"]
+
+    process = _sync_request(
+        app,
+        "POST",
+        "/api/processar",
+        headers={"X-API-Key": "segredo-copilot"},
+        json_body={"ano": 2026, "mes": 10},
+    )
+    assert process.status_code == 503
 
 
 def test_process_returns_real_result_and_signed_download():

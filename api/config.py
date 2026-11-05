@@ -107,13 +107,18 @@ class ApiSettings:
         )
 
     @property
-    def ready(self) -> bool:
+    def connection_ready(self) -> bool:
+        """Indica que a API pode autenticar consumidores externos com segurança."""
         return bool(
             self.inbound_api_key
             and self.file_signing_secret
-            and self.checklist_api_token
             and self.public_api_base_url
         )
+
+    @property
+    def ready(self) -> bool:
+        """Indica que a API também está apta a consultar o Checklist Fácil."""
+        return self.connection_ready and bool(self.checklist_api_token)
 
     @property
     def missing_settings(self) -> list[str]:
