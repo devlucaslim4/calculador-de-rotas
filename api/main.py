@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from api.config import ApiSettings
 from api.files import TemporaryFileStore
@@ -36,6 +38,16 @@ def create_app(
         redoc_url="/redoc",
         openapi_url="/openapi.json",
     )
+
+    @application.get(
+        "/openapi-copilot.json",
+        include_in_schema=False,
+        response_class=FileResponse,
+    )
+    async def copilot_openapi_definition() -> FileResponse:
+        """Disponibiliza a especificação Swagger 2.0 compatível com o Copilot Studio."""
+        specification = Path(__file__).resolve().parents[1] / "openapi-copilot.json"
+        return FileResponse(specification, media_type="application/json")
 
     @application.exception_handler(HTTPException)
     async def http_exception_handler(_request: Request, exc: HTTPException) -> JSONResponse:
