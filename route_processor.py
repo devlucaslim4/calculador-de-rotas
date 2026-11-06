@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
+from threading import local
 from typing import Callable
 from urllib.parse import urlencode
 
@@ -38,6 +39,7 @@ MAX_WORKERS = 4
 TABLE_BATCH_SIZE = 50
 REQUEST_TIMEOUT = (5, 20)
 MAX_RETRIES = 3
+TABLE_MAX_RETRIES = 2
 
 INITIAL_HEADER = "COORDENADA GPS INICIAL"
 LEGACY_INITIAL_HEADER = "COORDENADA GPG INICIAL"
@@ -297,7 +299,7 @@ def calculate_routes_batch(
 
         url = f"{OSRM_TABLE_URL}/{';'.join(coordinates)}"
         batch_finished = False
-        for attempt in range(MAX_RETRIES):
+        for attempt in range(TABLE_MAX_RETRIES):
             try:
                 response = client.get(
                     url,
@@ -337,22 +339,31 @@ def calculate_routes_batch(
                 LOGGER.warning(
                     "Falha na consulta OSRM em lote (tentativa %s/%s): %s",
                     attempt + 1,
-                    MAX_RETRIES,
+                    TABLE_MAX_RETRIES,
                     exc,
                 )
-                if attempt < MAX_RETRIES - 1:
+                if attempt < TABLE_MAX_RETRIES - 1:
                     time.sleep(0.75 * (2**attempt))
 
         if not batch_finished:
-            # Mantém o funcionamento mesmo se o endpoint matricial estiver
-            # temporariamente indisponível.
-            for pair in batch:
+            # Mantém o fallback individual, mas limita a concorrência para que
+            # uma falha da matriz não transforme dezenas de rotas em uma fila
+            # de timeouts sequenciais. Cada thread mantém sua própria sessão HTTP.
+            thread_state = local()
+
+            def calculate_fallback(pair):
+                if not hasattr(thread_state, "session"):
+                    thread_state.session = requests.Session()
                 origin, destination = pair
-                results[pair] = calculate_route(
+                return pair, calculate_route(
                     f"{origin[0]},{origin[1]}",
                     f"{destination[0]},{destination[1]}",
-                    session=client,
+                    session=thread_state.session,
                 )
+
+            with ThreadPoolExecutor(max_workers=min(MAX_WORKERS, len(batch))) as executor:
+                for pair, result in executor.map(calculate_fallback, batch):
+                    results[pair] = result
     return results
 
 

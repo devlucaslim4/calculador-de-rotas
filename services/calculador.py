@@ -7,6 +7,8 @@ originais do projeto.
 
 from __future__ import annotations
 
+import logging
+import time
 from dataclasses import dataclass
 from io import BytesIO
 from typing import Callable
@@ -18,6 +20,8 @@ from api.config import ApiSettings
 from checklist_api import ChecklistApiClient
 from checklist_transform import build_standardized_workbook, transformar_checklists_em_planilha
 from route_processor import ProcessingSummary, process_workbook
+
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -63,17 +67,37 @@ class CalculadorService:
         filters: dict[str, object] | None = None,
         preview_limit: int = 10,
     ) -> CalculationResult:
+        process_started = time.perf_counter()
         client = self.client_factory(self.settings.checklist_api_token)
+        stage_started = time.perf_counter()
         snapshot = client.fetch_month_snapshot(
             year,
             month,
             category_id=self.settings.category_id,
             timezone_name=self.settings.timezone_name,
         )
+        LOGGER.info(
+            "Checklist snapshot loaded",
+            extra={
+                "year": year,
+                "month": month,
+                "evaluations": len(snapshot.evaluations),
+                "duration_ms": round((time.perf_counter() - stage_started) * 1000),
+            },
+        )
+        stage_started = time.perf_counter()
         transformed = transformar_checklists_em_planilha(
             snapshot,
             self.settings.item_mapping,
             timezone_name=self.settings.timezone_name,
+        )
+        LOGGER.info(
+            "Checklist records transformed",
+            extra={
+                "records": transformed.found,
+                "valid_routes": transformed.valid,
+                "duration_ms": round((time.perf_counter() - stage_started) * 1000),
+            },
         )
         warnings = list(transformed.mapping_warnings)
         if transformed.duplicate_count:
@@ -105,7 +129,18 @@ class CalculadorService:
             )
 
         standardized = build_standardized_workbook(transformed)
+        stage_started = time.perf_counter()
         processed = self.workbook_processor(standardized)
+        LOGGER.info(
+            "Routes calculated and workbook generated",
+            extra={
+                "records": processed.total,
+                "routes_calculated": processed.calculated,
+                "routes_failed": processed.failed,
+                "duration_ms": round((time.perf_counter() - stage_started) * 1000),
+            },
+        )
+        stage_started = time.perf_counter()
         dataframe = pd.read_excel(BytesIO(processed.workbook))
         analysis = prepare_analysis(dataframe)
         selections = dict(filters or {})
@@ -121,6 +156,10 @@ class CalculadorService:
             else set()
         )
         metrics = calculate_metrics(analysis, filtered, inconsistent_indices)
+        LOGGER.info(
+            "Route analysis prepared",
+            extra={"duration_ms": round((time.perf_counter() - stage_started) * 1000)},
+        )
         warnings.extend(analysis.warnings)
         status = "concluido_com_alertas" if processed.failed else "concluido"
         message = (
@@ -128,6 +167,10 @@ class CalculadorService:
             + (f" e {processed.failed} não calculada(s)." if processed.failed else ".")
         )
         public_columns = [column for column in filtered.columns if not str(column).startswith("__")]
+        LOGGER.info(
+            "Route processing finished",
+            extra={"duration_ms": round((time.perf_counter() - process_started) * 1000)},
+        )
         return CalculationResult(
             status=status,
             message=message,

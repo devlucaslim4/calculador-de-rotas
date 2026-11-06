@@ -148,11 +148,30 @@ class ChecklistApiClient:
         last_error: Exception | None = None
         for attempt in range(self.max_retries):
             self._respect_minimum_interval()
+            request_started = time.monotonic()
             try:
                 response = self.session.get(url, params=params, timeout=REQUEST_TIMEOUT)
                 self._last_request_at = time.monotonic()
+                LOGGER.info(
+                    "Checklist API response",
+                    extra={
+                        "endpoint": path,
+                        "status_code": response.status_code,
+                        "duration_ms": round((time.monotonic() - request_started) * 1000),
+                        "attempt": attempt + 1,
+                    },
+                )
             except requests.RequestException as exc:
                 last_error = exc
+                LOGGER.warning(
+                    "Checklist API request failed",
+                    extra={
+                        "endpoint": path,
+                        "attempt": attempt + 1,
+                        "duration_ms": round((time.monotonic() - request_started) * 1000),
+                        "error_type": type(exc).__name__,
+                    },
+                )
                 if attempt < self.max_retries - 1:
                     self.sleep(min(1.5 * (2**attempt), 30.0))
                     continue

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
@@ -12,6 +13,11 @@ from api.config import ApiSettings
 from api.files import TemporaryFileStore
 from api.routes import build_router
 from services.calculador import CalculadorService
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
 
 
 def create_app(
