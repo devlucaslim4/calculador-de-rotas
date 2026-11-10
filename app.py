@@ -120,6 +120,12 @@ def _calculate_and_store(
                 update_progress(summary.total, summary.total)
             else:
                 summary = process_workbook(workbook_bytes, update_progress)
+        if summary.failed:
+            raise SpreadsheetError(
+                f"A planilha não foi liberada: {summary.failed} de {summary.total} "
+                "rotas não foram calculadas. Verifique as coordenadas ou tente novamente "
+                "quando o serviço de rotas estiver disponível."
+            )
         processed_df = dataframe_from_excel(summary.workbook)
         progress.progress(1.0, text="Processamento concluído")
         st.session_state["result"] = summary

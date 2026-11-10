@@ -106,6 +106,31 @@ class CalculadorService:
                 "consolidados pelo ID da resposta."
             )
 
+        if transformed.inconsistent:
+            message = (
+                f"{transformed.inconsistent} checklist(s) concluído(s) não possuem "
+                "coordenadas GPS inicial e final válidas. Nenhuma planilha foi gerada, "
+                "para não entregar registros concluídos sem cálculo de rota. Revise as "
+                "coordenadas ou o mapeamento dos itens no Checklist Fácil e tente novamente."
+            )
+            return CalculationResult(
+                status="coordenadas_pendentes",
+                message=message,
+                year=year,
+                month=month,
+                found=transformed.found,
+                valid=transformed.valid,
+                inconsistent=transformed.inconsistent,
+                duplicates=transformed.duplicate_count,
+                calculated=0,
+                failed=0,
+                metrics={},
+                preview=[],
+                warnings=tuple(dict.fromkeys(warnings)),
+                workbook=None,
+                filename=None,
+            )
+
         if not transformed.valid:
             return CalculationResult(
                 status="sem_rotas_validas",
@@ -140,6 +165,38 @@ class CalculadorService:
                 "duration_ms": round((time.perf_counter() - stage_started) * 1000),
             },
         )
+        if processed.failed:
+            message = (
+                f"O serviço de rotas não calculou {processed.failed} de "
+                f"{processed.total} rota(s) elegível(is). Nenhuma planilha foi liberada "
+                "para evitar resultados incompletos. Tente novamente mais tarde; se o "
+                "problema persistir, verifique as coordenadas dessas rotas."
+            )
+            LOGGER.warning(
+                "Workbook withheld because route calculations are incomplete",
+                extra={
+                    "routes_calculated": processed.calculated,
+                    "routes_failed": processed.failed,
+                    "records": processed.total,
+                },
+            )
+            return CalculationResult(
+                status="rotas_pendentes",
+                message=message,
+                year=year,
+                month=month,
+                found=transformed.found,
+                valid=transformed.valid,
+                inconsistent=transformed.inconsistent,
+                duplicates=transformed.duplicate_count,
+                calculated=processed.calculated,
+                failed=processed.failed,
+                metrics={},
+                preview=[],
+                warnings=tuple(dict.fromkeys(warnings)),
+                workbook=None,
+                filename=None,
+            )
         stage_started = time.perf_counter()
         dataframe = pd.read_excel(BytesIO(processed.workbook))
         analysis = prepare_analysis(dataframe)
@@ -161,11 +218,8 @@ class CalculadorService:
             extra={"duration_ms": round((time.perf_counter() - stage_started) * 1000)},
         )
         warnings.extend(analysis.warnings)
-        status = "concluido_com_alertas" if processed.failed else "concluido"
-        message = (
-            f"Processamento concluído: {processed.calculated} rota(s) calculada(s)"
-            + (f" e {processed.failed} não calculada(s)." if processed.failed else ".")
-        )
+        status = "concluido"
+        message = f"Processamento concluído: {processed.calculated} rota(s) calculada(s)."
         public_columns = [column for column in filtered.columns if not str(column).startswith("__")]
         LOGGER.info(
             "Route processing finished",
