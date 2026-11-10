@@ -118,9 +118,24 @@ def test_api_service_reuses_the_same_excel_pipeline_as_streamlit():
         client_factory=FakeClient,
         workbook_processor=_processor,
     )
-    result = service.processar_periodo(2026, 10, preview_limit=5)
+    result = service.processar_periodo(
+        2026,
+        10,
+        pix_records=[{"usuario": "Ana", "pix": "pix-teste"}],
+        preview_limit=5,
+    )
 
     transformed = transformar_checklists_em_planilha(_snapshot(), {})
+    enriched = transformed.all_rows.copy()
+    enriched.insert(3, "PIX", "pix-teste")
+    transformed = transformed.__class__(
+        all_rows=enriched,
+        valid_rows=enriched.loc[enriched["VALIDAÇÃO"].eq("Válida")].reset_index(drop=True),
+        inconsistent_rows=enriched.loc[~enriched["VALIDAÇÃO"].eq("Válida")].reset_index(drop=True),
+        resolved_mapping=transformed.resolved_mapping,
+        mapping_warnings=transformed.mapping_warnings,
+        duplicate_count=transformed.duplicate_count,
+    )
     direct = _processor(build_standardized_workbook(transformed))
 
     assert result.workbook is not None
@@ -128,6 +143,7 @@ def test_api_service_reuses_the_same_excel_pipeline_as_streamlit():
     assert result.calculated == 1
     assert result.metrics["Total de rotas únicas"] == 1
     assert result.preview[0]["ID RESPOSTA"] == 55
+    assert "PIX" not in result.preview[0]
 
 
 def test_service_does_not_call_route_processor_without_valid_coordinates():
@@ -168,6 +184,7 @@ def test_date_filter_changes_summary_but_preserves_generated_workbook():
         2026,
         10,
         filters={"data_inicio": date(2026, 10, 6), "data_fim": None},
+        pix_records=[{"usuario": "Ana", "pix": "pix-teste"}],
         preview_limit=5,
     )
 

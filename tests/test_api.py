@@ -20,7 +20,7 @@ class FakeCalculator:
         self.workbook = workbook
         self.calls: list[tuple[int, int, dict[str, object], int]] = []
 
-    def processar_periodo(self, year, month, *, filters, preview_limit):
+    def processar_periodo(self, year, month, *, filters, pix_records, preview_limit):
         self.calls.append((year, month, filters, preview_limit))
         return CalculationResult(
             status="concluido",
@@ -180,7 +180,7 @@ def test_options_remain_available_before_checklist_credential_is_configured():
         "POST",
         "/api/processar",
         headers={"X-API-Key": "segredo-copilot"},
-        json_body={"ano": 2026, "mes": 10},
+        json_body={"ano": 2026, "mes": 10, "pix_por_usuario": []},
     )
     assert process.status_code == 503
 
@@ -197,6 +197,7 @@ def test_process_returns_real_result_and_signed_download():
             "ano": 2026,
             "mes": 10,
             "filtros": {"usuario": ["Ana"]},
+            "pix_por_usuario": [{"usuario": "ana@exemplo.com", "pix": "pix-teste"}],
             "limite_previa": 5,
         },
     )
@@ -228,7 +229,7 @@ def test_invalid_download_token_and_renewal():
             "POST",
             "/api/processar",
             headers={"X-API-Key": "segredo-copilot"},
-            json_body={"ano": 2026, "mes": 10},
+            json_body={"ano": 2026, "mes": 10, "pix_por_usuario": []},
         )
     ).json()
     file_id = processed["arquivo"]["id"]

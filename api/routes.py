@@ -31,6 +31,7 @@ from checklist_api import ChecklistApiError, ChecklistAuthenticationError
 from checklist_transform import ChecklistTransformationError
 from route_processor import SpreadsheetError
 from services.calculador import CalculationResult, CalculadorService
+from pix_enrichment import PixDataMissingError
 
 LOGGER = logging.getLogger(__name__)
 EXCEL_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -142,6 +143,7 @@ def build_router(
                     payload.ano,
                     payload.mes,
                     filters=payload.filtros.model_dump(),
+                    pix_records=[row.model_dump() for row in payload.pix_por_usuario],
                     preview_limit=payload.limite_previa,
                 )
             )
@@ -154,6 +156,12 @@ def build_router(
             ) from exc
         except ChecklistApiError as exc:
             raise _problem(status.HTTP_502_BAD_GATEWAY, "falha_checklist_facil", str(exc)) from exc
+        except PixDataMissingError as exc:
+            raise _problem(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "pix_nao_enviado",
+                str(exc),
+            ) from exc
         except (ChecklistTransformationError, SpreadsheetError) as exc:
             raise _problem(
                 status.HTTP_422_UNPROCESSABLE_ENTITY,

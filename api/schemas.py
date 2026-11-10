@@ -12,6 +12,10 @@ FilterValue = Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=1, max_length=200),
 ]
+PixField = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=320),
+]
 
 
 class FiltrosAnalise(BaseModel):
@@ -51,6 +55,13 @@ class FiltrosAnalise(BaseModel):
         return self
 
 
+class PixPorUsuario(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    usuario: PixField = Field(description="Valor da coluna Usuário da lista SharePoint.")
+    pix: PixField = Field(description="Valor da coluna Chave PIX da lista SharePoint.")
+
+
 class ProcessarRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -65,6 +76,13 @@ class ProcessarRequest(BaseModel):
         ge=0,
         le=50,
         description="Quantidade máxima de linhas reais devolvidas no JSON.",
+    )
+    pix_por_usuario: list[PixPorUsuario] = Field(
+        max_length=5000,
+        description=(
+            "Dados estruturados recebidos pela ação SharePoint do agente. Envie somente "
+            "os campos usuario e pix da lista Controle de Dados Pagamentos."
+        ),
     )
 
     @model_validator(mode="after")

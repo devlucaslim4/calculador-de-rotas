@@ -20,6 +20,12 @@ from api.config import ApiSettings
 from checklist_api import ChecklistApiClient
 from checklist_transform import build_standardized_workbook, transformar_checklists_em_planilha
 from route_processor import ProcessingSummary, process_workbook
+from pix_enrichment import (
+    PixDataMissingError,
+    build_pix_index,
+    checklist_user_aliases,
+    find_unambiguous_pix,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -65,6 +71,7 @@ class CalculadorService:
         month: int,
         *,
         filters: dict[str, object] | None = None,
+        pix_records: list[dict[str, str]] | None = None,
         preview_limit: int = 10,
     ) -> CalculationResult:
         process_started = time.perf_counter()
@@ -153,6 +160,35 @@ class CalculadorService:
                 filename=None,
             )
 
+        if pix_records is None:
+            raise PixDataMissingError(
+                "A ação SharePoint do agente não enviou os pares das colunas Usuário e Chave PIX."
+            )
+        pix_by_identity = build_pix_index(pix_records)
+        alias_by_name = checklist_user_aliases(snapshot.users)
+        enriched = transformed.all_rows.copy()
+        enriched.insert(3, "PIX", None)
+        matched = 0
+        for index, row in enriched.iterrows():
+            pix = find_unambiguous_pix(row.get("NOME"), alias_by_name, pix_by_identity)
+            if pix is not None:
+                enriched.at[index, "PIX"] = pix
+                matched += 1
+        transformed = transformed.__class__(
+            all_rows=enriched,
+            valid_rows=enriched.loc[enriched["VALIDAÇÃO"].eq("Válida")].reset_index(drop=True),
+            inconsistent_rows=enriched.loc[~enriched["VALIDAÇÃO"].eq("Válida")].reset_index(drop=True),
+            resolved_mapping=transformed.resolved_mapping,
+            mapping_warnings=transformed.mapping_warnings,
+            duplicate_count=transformed.duplicate_count,
+        )
+        unmatched = max(0, transformed.found - matched)
+        if unmatched:
+            warnings.append(
+                f"A chave PIX foi associada com correspondência exata e inequívoca em "
+                f"{matched} de {transformed.found} checklist(s); {unmatched} ficaram sem PIX."
+            )
+
         standardized = build_standardized_workbook(transformed)
         stage_started = time.perf_counter()
         processed = self.workbook_processor(standardized)
@@ -220,7 +256,11 @@ class CalculadorService:
         warnings.extend(analysis.warnings)
         status = "concluido"
         message = f"Processamento concluído: {processed.calculated} rota(s) calculada(s)."
-        public_columns = [column for column in filtered.columns if not str(column).startswith("__")]
+        public_columns = [
+            column
+            for column in filtered.columns
+            if not str(column).startswith("__") and column != "PIX"
+        ]
         LOGGER.info(
             "Route processing finished",
             extra={"duration_ms": round((time.perf_counter() - process_started) * 1000)},

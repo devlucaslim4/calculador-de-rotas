@@ -2,7 +2,7 @@
   "swagger": "2.0",
   "info": {
     "title": "Calculador de Rotas",
-    "description": "Importa checklists concluídos, calcula rotas e entrega a planilha Excel tratada. Use processarPeriodo quando o usuário informar mês e ano; apresente o link retornado em arquivo.url_download quando ele pedir o Excel.",
+    "description": "Assistente para importar checklists concluídos, calcular rotas e entregar Excel. Para processar, obtenha os registros da lista Controle de Dados Pagamentos pela ação SharePoint e envie somente Usuário e Chave PIX em pix_por_usuario. Com mês e ano definidos, chame processarPeriodo uma única vez. O Excel inclui a coluna PIX associada ao usuário; o PIX não aparece na prévia do chat. Apresente arquivo.url_download como link clicável quando retornado.",
     "version": "1.0.0"
   },
   "host": "calculador-de-rotas-api.onrender.com",
@@ -37,7 +37,7 @@
       "get": {
         "operationId": "listarOpcoes",
         "summary": "Listar meses, filtros e operações aceitos",
-        "description": "Use quando precisar explicar ao usuário quais parâmetros a integração suporta.",
+        "description": "Use somente quando a pessoa perguntar quais operações, meses ou filtros são aceitos. Não chame antes de processar: os parâmetros estão descritos aqui e no contrato da operação processarPeriodo.",
         "security": [{"apiKeyHeader": []}],
         "responses": {
           "200": {
@@ -52,7 +52,7 @@
       "post": {
         "operationId": "processarPeriodo",
         "summary": "Importar checklists, calcular rotas e preparar o Excel",
-        "description": "Use quando o usuário pedir dados, indicadores ou a planilha de um mês. O processamento pode levar algum tempo. Os filtros alteram o resumo e a prévia, mas o Excel preserva todos os registros do período.",
+        "description": "Use uma única vez quando o usuário pedir dados, indicadores ou Excel e mês e ano estiverem definidos. Antes, consulte a lista Controle de Dados Pagamentos pela ação SharePoint/fluxo do agente. Envie somente os campos Usuário e Chave PIX no parâmetro pix_por_usuario. Não envie CPF ou dados bancários. Filtros alteram apenas o resumo e a prévia; o Excel preserva todos os registros do período e inclui a coluna PIX associada ao usuário do Checklist Fácil. O PIX não aparece na prévia. Apresente arquivo.url_download se existir.",
         "security": [{"apiKeyHeader": []}],
         "parameters": [
           {
@@ -70,7 +70,8 @@
           },
           "401": {"description": "Chave inválida.", "schema": {"$ref": "#/definitions/ErroResponse"}},
           "422": {"description": "Parâmetros ou dados incompatíveis.", "schema": {"$ref": "#/definitions/ErroResponse"}},
-          "502": {"description": "Falha ao consultar o Checklist Fácil.", "schema": {"$ref": "#/definitions/ErroResponse"}}
+          "502": {"description": "Falha ao consultar o Checklist Fácil.", "schema": {"$ref": "#/definitions/ErroResponse"}},
+          "503": {"description": "Credencial do Checklist Fácil ou configuração base indisponível.", "schema": {"$ref": "#/definitions/ErroResponse"}}
         }
       }
     },
@@ -130,13 +131,28 @@
     },
     "ProcessarRequest": {
       "type": "object",
-      "required": ["ano", "mes"],
+      "required": ["ano", "mes", "pix_por_usuario"],
       "additionalProperties": false,
       "properties": {
         "ano": {"type": "integer", "minimum": 2015, "maximum": 2100, "description": "Ano de conclusão."},
         "mes": {"type": "integer", "minimum": 1, "maximum": 12, "description": "Mês de conclusão."},
         "filtros": {"$ref": "#/definitions/FiltrosAnalise"},
-        "limite_previa": {"type": "integer", "minimum": 0, "maximum": 50, "default": 10}
+        "limite_previa": {"type": "integer", "minimum": 0, "maximum": 50, "default": 10},
+        "pix_por_usuario": {
+          "type": "array",
+          "maxItems": 5000,
+          "description": "Passe os pares Usuario/Chave PIX devolvidos pela ação SharePoint do agente.",
+          "items": {"$ref": "#/definitions/PixPorUsuario"}
+        }
+      }
+    },
+    "PixPorUsuario": {
+      "type": "object",
+      "required": ["usuario", "pix"],
+      "additionalProperties": false,
+      "properties": {
+        "usuario": {"type": "string", "maxLength": 320},
+        "pix": {"type": "string", "maxLength": 320}
       }
     },
     "Periodo": {

@@ -19,6 +19,7 @@ O projeto transforma um processo local em uma aplicação web pronta para uso, s
 - Cálculo matricial de rotas em lotes e reaproveitamento de pares de coordenadas repetidos.
 - Preenchimento de hodômetro inicial e final por `ID RESPOSTA`, com cálculo da diferença por checklist.
 - Preenchimento do percentual absoluto entre a distância do hodômetro e a distância GPS, usando a distância GPS como base.
+- Na planilha gerada pelo agente, inclusão da coluna `PIX` por correspondência inequívoca do usuário com a lista Controle de Dados Pagamentos.
 - Cache temporário para consultas e cálculos repetidos do mesmo período.
 - Processamento paralelo controlado para funções de rota personalizadas.
 - Barra de progresso real e métricas de sucesso e falha.
@@ -96,9 +97,13 @@ A API REST compartilha o mesmo motor do Streamlit. Para iniciar localmente, conf
 uvicorn api.main:app --reload --host 127.0.0.1 --port 8000 --no-access-log
 ```
 
-O Swagger local fica em `http://localhost:8000/docs`. O arquivo `openapi-copilot.json` é o contrato Swagger 2.0 preparado para importação no Copilot Studio. O tutorial completo de hospedagem, conexão e entrega do Excel no Teams está em [`docs/integracao-copilot-studio.md`](docs/integracao-copilot-studio.md).
+O Swagger local fica em `http://localhost:8000/docs`. O arquivo `openapi-copilot.json` é o contrato Swagger 2.0 preparado para importação no Copilot Studio. O tutorial completo de hospedagem, conexão e entrega do Excel no Teams está em [`docs/integracao-copilot-studio.md`](docs/integracao-copilot-studio.md). As instruções prontas para respostas mais objetivas e opções clicáveis no Teams estão em [`docs/copilot-studio-interacao-rapida.md`](docs/copilot-studio-interacao-rapida.md).
 
 O Streamlit Community Cloud continua hospedando apenas a interface. A FastAPI precisa de um serviço HTTPS separado; `render.yaml` fornece um Blueprint inicial para o plano gratuito do Render, sujeito às limitações descritas no manual.
+
+### Coluna PIX na planilha do agente
+
+O agente deve consultar a lista `Controle de Dados Pagamentos` por uma ação/conector SharePoint e enviar somente os pares das colunas `Usuário` e `Chave PIX` no campo `pix_por_usuario` de `/api/processar`. O serviço cruza os pares com o usuário do Checklist Fácil e inclui a coluna `PIX` no Excel. Correspondências ausentes ou ambíguas permanecem em branco e são informadas como aviso. A coluna PIX não é incluída na prévia JSON do Copilot. Não é necessário criar uma identidade Graph separada nem adicionar credenciais PIX ao Render.
 
 ## Instalação local
 
