@@ -159,6 +159,7 @@ def _render_route_preview(preview) -> None:
         "VALOR ODOMETRO FINAL",
         "DISTÂNCIA HODÔMETRO",
         "DISTÂNCIA GPS",
+        "VALOR",
         "PERCENTUAL DIFERENÇA %",
         "STATUS DA ROTA",
         "LINK DA ROTA",
@@ -202,6 +203,8 @@ def _render_route_preview(preview) -> None:
     for column in ("DISTÂNCIA HODÔMETRO", "DISTÂNCIA GPS"):
         if column in visible:
             column_config[column] = st.column_config.NumberColumn(format="%.2f km")
+    if "VALOR" in visible:
+        column_config["VALOR"] = st.column_config.NumberColumn(format="R$ %.2f")
     if "PERCENTUAL DIFERENÇA %" in visible:
         column_config["PERCENTUAL DIFERENÇA %"] = st.column_config.NumberColumn(format="%.2f%%")
     if "LINK DA ROTA" in visible:

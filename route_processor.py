@@ -40,11 +40,16 @@ TABLE_BATCH_SIZE = 50
 REQUEST_TIMEOUT = (5, 20)
 MAX_RETRIES = 3
 TABLE_MAX_RETRIES = 2
+ROUTE_REQUEST_TIMEOUT = (4, 12)
+ROUTE_MAX_RETRIES = 2
+TABLE_REQUEST_TIMEOUT = (4, 12)
 
 INITIAL_HEADER = "COORDENADA GPS INICIAL"
 LEGACY_INITIAL_HEADER = "COORDENADA GPG INICIAL"
 FINAL_HEADER = "COORDENADA GPS FINAL"
 RESULT_HEADERS = ("DISTÂNCIA GPS", "STATUS DA ROTA", "LINK DA ROTA")
+VALUE_HEADER = "VALOR"
+VALUE_PER_KM_BRL = 0.99
 ODOMETER_INITIAL_HEADERS = (
     "VALOR ODOMETRO INICIAL",
     "ODOMETRO INICIAL",
@@ -246,12 +251,12 @@ def calculate_route(
     client = session or requests.Session()
     coordinates = f"{origin[1]},{origin[0]};{destination[1]},{destination[0]}"
     url = f"{OSRM_URL}/{coordinates}"
-    for attempt in range(MAX_RETRIES):
+    for attempt in range(ROUTE_MAX_RETRIES):
         try:
             response = client.get(
                 url,
                 params={"overview": "false", "steps": "false"},
-                timeout=REQUEST_TIMEOUT,
+                timeout=ROUTE_REQUEST_TIMEOUT,
                 headers={"User-Agent": "Calculador-de-Rotas/1.0"},
             )
             if response.status_code in {429, 500, 502, 503, 504}:
@@ -265,8 +270,13 @@ def calculate_route(
             distance = round(float(data["routes"][0]["distance"]) / 1000, 2)
             return RouteResult(distance, "Calculada", route_link)
         except (requests.RequestException, ValueError, KeyError, TypeError) as exc:
-            LOGGER.warning("Falha na consulta OSRM (tentativa %s/%s): %s", attempt + 1, MAX_RETRIES, exc)
-            if attempt < MAX_RETRIES - 1:
+            LOGGER.warning(
+                "Falha na consulta OSRM (tentativa %s/%s): %s",
+                attempt + 1,
+                ROUTE_MAX_RETRIES,
+                exc,
+            )
+            if attempt < ROUTE_MAX_RETRIES - 1:
                 time.sleep(0.75 * (2**attempt))
     return RouteResult(None, "Falha na consulta", route_link)
 
@@ -308,7 +318,7 @@ def calculate_routes_batch(
                         "destinations": ";".join(destination_indexes),
                         "annotations": "distance",
                     },
-                    timeout=REQUEST_TIMEOUT,
+                    timeout=TABLE_REQUEST_TIMEOUT,
                     headers={"User-Agent": "Calculador-de-Rotas/2.0"},
                 )
                 if response.status_code in {429, 500, 502, 503, 504}:
@@ -424,6 +434,12 @@ def process_workbook(
             worksheet.cell(1, column, header)
         result_columns[header] = column
 
+    value_col = headers.get(normalize_header(VALUE_HEADER))
+    if value_col is None:
+        value_col = next_column
+        next_column += 1
+        worksheet.cell(1, value_col, VALUE_HEADER)
+
     odometer_initial_col = _find_optional_header(headers, ODOMETER_INITIAL_HEADERS)
     odometer_final_col = _find_optional_header(headers, ODOMETER_FINAL_HEADERS)
     odometer_distance_col = headers.get(normalize_header(ODOMETER_DISTANCE_HEADER))
@@ -495,6 +511,13 @@ def process_workbook(
         link_cell = worksheet.cell(row, result_columns["LINK DA ROTA"])
         distance_cell.value = result.distance_km
         distance_cell.number_format = "0.00"
+        value_cell = worksheet.cell(row, value_col)
+        value_cell.value = (
+            round(result.distance_km * VALUE_PER_KM_BRL, 2)
+            if result.distance_km is not None
+            else None
+        )
+        value_cell.number_format = '"R$" #,##0.00'
         status_cell.value = result.status
         link_cell.value = "ABRIR ROTA" if result.link else None
         link_cell.hyperlink = result.link
@@ -529,6 +552,7 @@ def process_workbook(
         (result_columns["DISTÂNCIA GPS"], "DISTÂNCIA GPS", 18),
         (result_columns["STATUS DA ROTA"], "STATUS DA ROTA", 32),
         (result_columns["LINK DA ROTA"], "LINK DA ROTA", 18),
+        (value_col, VALUE_HEADER, 18),
     ]
     if odometer_distance_col is not None:
         styled_columns.append((odometer_distance_col, ODOMETER_DISTANCE_HEADER, 24))

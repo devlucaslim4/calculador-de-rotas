@@ -519,6 +519,6 @@ def render_result_callout(calculated: int) -> None:
 
     st.markdown(
         f'<div class="result-callout"><strong>{calculated} rota(s) pronta(s) para conferência.</strong> '
-        'O arquivo final inclui coordenadas, distância GPS, hodômetro, percentual de diferença e links de rota.</div>',
+        'O arquivo final inclui coordenadas, distância GPS, valor estimado a R$ 0,99/km, hodômetro, percentual de diferença e links de rota.</div>',
         unsafe_allow_html=True,
     )
