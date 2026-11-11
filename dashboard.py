@@ -82,9 +82,13 @@ def render_dashboard(dataframe: pd.DataFrame, original_name: str, light_mode: bo
     _render_metrics(metrics)
     routes = analysis.unique_routes(filtered)
     _render_downloads(analysis, filtered, audit, metrics, original_name)
-    overview_tab, data_tab, audit_tab = st.tabs(["Visão geral", "Dados detalhados", "Auditoria"])
+    overview_tab, payments_tab, data_tab, audit_tab = st.tabs(
+        ["Visão geral", "Pagamentos", "Dados detalhados", "Auditoria"]
+    )
     with overview_tab:
         _render_charts(analysis, routes, 10, light_mode)
+    with payments_tab:
+        _render_payment_summary(analysis, filtered, light_mode)
     with data_tab:
         _render_data_table(analysis, filtered)
     with audit_tab:
@@ -608,6 +612,10 @@ def _render_data_table(analysis: AnalysisData, filtered: pd.DataFrame) -> None:
     ]
     columns = [analysis.columns[key] for key in preferred if key in analysis.columns]
     by_normalized = {normalize_header(column): column for column in filtered.columns}
+    columns.extend(
+        column for column in (by_normalized.get("PIX"), by_normalized.get("VALOR"))
+        if column and column not in columns
+    )
     percent_column = by_normalized.get("PERCENTUAL DIFERENCA %")
     link_column = by_normalized.get("LINK DA ROTA")
     columns.extend(column for column in (percent_column, link_column) if column and column not in columns)
@@ -624,6 +632,8 @@ def _render_data_table(analysis: AnalysisData, filtered: pd.DataFrame) -> None:
         analysis.columns.get("data_fim"): "Fim",
         analysis.columns.get("distancia_hodometro_existente"): "Distância hodômetro (km)",
         analysis.columns.get("distancia_gps"): "Distância GPS (km)",
+        by_normalized.get("PIX"): "PIX",
+        by_normalized.get("VALOR"): "Valor (R$)",
         percent_column: "Diferença (%)",
         link_column: "Rota",
     }
@@ -635,11 +645,137 @@ def _render_data_table(analysis: AnalysisData, filtered: pd.DataFrame) -> None:
         column_config["Distância hodômetro (km)"] = st.column_config.NumberColumn(format="%.2f km")
     if "Distância GPS (km)" in visible:
         column_config["Distância GPS (km)"] = st.column_config.NumberColumn(format="%.2f km")
+    if "Valor (R$)" in visible:
+        column_config["Valor (R$)"] = st.column_config.NumberColumn(format="R$ %.2f")
     if "Diferença (%)" in visible:
         column_config["Diferença (%)"] = st.column_config.NumberColumn(format="%.2f%%")
     if "Rota" in visible:
         column_config["Rota"] = st.column_config.LinkColumn(display_text="Abrir rota")
     st.dataframe(visible, width="stretch", hide_index=True, height=460, column_config=column_config)
+
+
+def _render_payment_summary(analysis: AnalysisData, filtered: pd.DataFrame, light_mode: bool) -> None:
+    """Resume pagamentos por usuário e checklist a partir dos valores calculados existentes."""
+
+    by_normalized = {normalize_header(column): column for column in filtered.columns}
+    value_column = by_normalized.get("VALOR")
+    if not value_column:
+        st.info("A coluna VALOR não existe nesta planilha. Gere o arquivo com o cálculo das rotas para consultar os pagamentos.")
+        return
+
+    id_column = analysis.columns.get("id")
+    user_column = analysis.columns.get("usuario")
+    pix_column = by_normalized.get("PIX")
+    distance_column = by_normalized.get("DISTANCIA GPS") or analysis.columns.get("distancia_gps")
+    checklist_rows = analysis.unique_routes(filtered).copy()
+    if checklist_rows.empty:
+        st.info("Nenhum checklist corresponde aos filtros selecionados.")
+        return
+
+    def parse_values(values: pd.Series) -> pd.Series:
+        if pd.api.types.is_numeric_dtype(values):
+            return pd.to_numeric(values, errors="coerce")
+        cleaned = values.astype("string").str.strip().str.replace(r"[^\d,.-]", "", regex=True)
+        comma_decimal = cleaned.str.contains(",", na=False)
+        cleaned.loc[comma_decimal] = (
+            cleaned.loc[comma_decimal].str.replace(".", "", regex=False).str.replace(",", ".", regex=False)
+        )
+        return pd.to_numeric(cleaned, errors="coerce")
+
+    checklist_rows["__valor_pagamento"] = parse_values(checklist_rows[value_column])
+    checklist_rows["__km_pagamento"] = (
+        parse_values(checklist_rows[distance_column]) if distance_column else float("nan")
+    )
+    name_column = user_column if user_column else None
+    checklist_rows["__usuario_pagamento"] = (
+        checklist_rows[name_column].fillna("Usuário não informado").astype(str).str.strip()
+        if name_column else "Usuário não informado"
+    )
+    checklist_rows["__usuario_pagamento"] = checklist_rows["__usuario_pagamento"].replace("", "Usuário não informado")
+    valid_amounts = checklist_rows["__valor_pagamento"].dropna()
+    if valid_amounts.empty:
+        st.info("Ainda não há valores calculados disponíveis para os checklists filtrados.")
+        return
+
+    total = float(valid_amounts.sum())
+    amount_count = int(valid_amounts.count())
+    metrics = st.columns(3)
+    metrics[0].metric("Total a pagar", f"R$ {total:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+    metrics[1].metric("Checklists com valor", f"{amount_count:,}".replace(",", "."))
+    metrics[2].metric("Valor médio por checklist", f"R$ {total / amount_count:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+
+    grouped = checklist_rows.groupby("__usuario_pagamento", dropna=False).agg(
+        Checklists=("__valor_pagamento", "size"),
+        **{"Total a pagar (R$)": ("__valor_pagamento", "sum"), "Distância GPS (km)": ("__km_pagamento", "sum")},
+    ).reset_index().rename(columns={"__usuario_pagamento": "Usuário"})
+    if pix_column:
+        pix_values = checklist_rows.groupby("__usuario_pagamento")[pix_column].agg(
+            lambda values: sorted({str(value).strip() for value in values.dropna() if str(value).strip()})
+        )
+        grouped["PIX"] = grouped["Usuário"].map(
+            lambda user: (pix_values.get(user, [])[0] if len(pix_values.get(user, [])) == 1
+                          else "Chaves divergentes" if pix_values.get(user, []) else "")
+        )
+        grouped = grouped[["Usuário", "PIX", "Checklists", "Distância GPS (km)", "Total a pagar (R$)"]]
+    grouped = grouped.sort_values("Total a pagar (R$)", ascending=False)
+
+    chart = px.bar(
+        grouped,
+        x="Usuário",
+        y="Total a pagar (R$)",
+        title="Total a pagar por usuário",
+        color_discrete_sequence=["#F36C21"],
+        hover_data={"Checklists": True, "Distância GPS (km)": ":.2f"},
+    )
+    chart.update_layout(
+        template="plotly_white" if light_mode else "plotly_dark",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font={"color": COLORS["muted"] if not light_mode else COLORS["background"]},
+        yaxis_title="Valor (R$)",
+        margin=dict(l=10, r=10, t=55, b=10),
+    )
+    chart.update_yaxes(tickprefix="R$ ", gridcolor="rgba(167,183,200,.10)")
+    st.plotly_chart(chart, width="stretch")
+    st.subheader("Resumo de pagamento por usuário")
+    st.dataframe(
+        grouped,
+        width="stretch",
+        hide_index=True,
+        column_config={
+            "Distância GPS (km)": st.column_config.NumberColumn(format="%.2f km"),
+            "Total a pagar (R$)": st.column_config.NumberColumn(format="R$ %.2f"),
+        },
+    )
+
+    detail = checklist_rows.copy()
+    detail_columns = []
+    labels = {}
+    if id_column:
+        detail_columns.append(id_column)
+        labels[id_column] = "ID resposta"
+    if user_column:
+        detail_columns.append(user_column)
+        labels[user_column] = "Usuário"
+    if pix_column:
+        detail_columns.append(pix_column)
+        labels[pix_column] = "PIX"
+    if distance_column:
+        detail_columns.append(distance_column)
+        labels[distance_column] = "Distância GPS (km)"
+    detail_columns.append(value_column)
+    labels[value_column] = "Valor (R$)"
+    detail = detail[detail_columns].rename(columns=labels)
+    st.subheader("Valores por checklist")
+    st.dataframe(
+        detail,
+        width="stretch",
+        hide_index=True,
+        column_config={
+            "Distância GPS (km)": st.column_config.NumberColumn(format="%.2f km"),
+            "Valor (R$)": st.column_config.NumberColumn(format="R$ %.2f"),
+        },
+    )
 
 
 def _render_audit(audit: pd.DataFrame) -> None:

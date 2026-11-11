@@ -9,6 +9,8 @@ from openpyxl.utils import get_column_letter
 
 NAVY = "101C2B"
 MINT = "56CFAD"
+ORANGE = "F36C21"
+ORANGE_LIGHT = "FCE4D6"
 TEXT = "26384B"
 STRIPE = "F3F6F9"
 MINT_LIGHT = "EAF7F2"
@@ -75,12 +77,11 @@ def style_worksheet(worksheet) -> None:
     worksheet.auto_filter.ref = worksheet.dimensions
     worksheet.row_dimensions[1].height = 38
 
-    header_fill = PatternFill("solid", fgColor=NAVY)
-    mint_fill = PatternFill("solid", fgColor=MINT)
+    header_fill = PatternFill("solid", fgColor=ORANGE_LIGHT)
     stripe_fill = PatternFill("solid", fgColor=STRIPE)
     mint_data_fill = PatternFill("solid", fgColor=MINT_LIGHT)
     no_fill = PatternFill(fill_type=None)
-    header_border = Border(bottom=Side(style="medium", color=MINT))
+    header_border = Border(bottom=Side(style="medium", color=ORANGE))
     row_border = Border(bottom=Side(style="hair", color=GRID))
     header_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
     data_alignment = Alignment(vertical="center", wrap_text=False)
@@ -89,9 +90,8 @@ def style_worksheet(worksheet) -> None:
     for cell in worksheet[1]:
         header = _normalize_header(cell.value)
         headers[cell.column] = header
-        is_mint_column = header in _NORMALIZED_MINT_COLUMNS
-        cell.font = Font(name="Aptos", size=10, bold=True, color=NAVY if is_mint_column else "FFFFFF")
-        cell.fill = mint_fill if is_mint_column else header_fill
+        cell.font = Font(name="Aptos", size=10, bold=True, color=NAVY)
+        cell.fill = header_fill
         cell.alignment = header_alignment
         cell.border = header_border
         worksheet.column_dimensions[get_column_letter(cell.column)].width = _NORMALIZED_WIDTHS.get(header, 19)

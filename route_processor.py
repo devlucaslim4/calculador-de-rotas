@@ -27,6 +27,9 @@ except ImportError:  # pragma: no cover - a dependência é instalada em produç
 
 import requests
 from openpyxl import load_workbook
+from openpyxl.chart import BarChart, Reference
+from openpyxl.styles import Alignment, Font, PatternFill, Side, Border
+from openpyxl.worksheet.table import Table, TableStyleInfo
 from workbook_style import style_worksheet
 
 LOGGER = logging.getLogger(__name__)
@@ -49,6 +52,7 @@ FINAL_HEADER = "COORDENADA GPS FINAL"
 RESULT_HEADERS = ("DISTÂNCIA GPS", "STATUS DA ROTA", "LINK DA ROTA")
 VALUE_HEADER = "VALOR"
 VALUE_PER_KM_BRL = 0.99
+PAYMENT_SHEET = "Resumo de pagamentos"
 ODOMETER_INITIAL_HEADERS = (
     "VALOR ODOMETRO INICIAL",
     "ODOMETRO INICIAL",
@@ -552,6 +556,7 @@ def process_workbook(
             calculated += 1
 
     style_worksheet(worksheet)
+    _add_payment_summary(workbook, worksheet)
     styled_at = time.perf_counter()
 
     output = BytesIO()
@@ -571,6 +576,104 @@ def process_workbook(
         },
     )
     return result
+
+
+def _add_payment_summary(workbook, data_sheet) -> None:
+    """Cria resumo por usuário e gráfico usando somente valores da planilha calculada."""
+
+    headers = {normalize_header(cell.value): cell.column for cell in data_sheet[1]}
+    user_col = next(
+        (headers[key] for key in ("NOME", "USUARIO", "NOME USUARIO", "COLABORADOR", "MOTORISTA") if key in headers),
+        None,
+    )
+    value_col = headers.get(normalize_header(VALUE_HEADER))
+    if not user_col or not value_col:
+        return
+
+    pix_col = headers.get("PIX")
+    id_col = next((headers[key] for key in ("ID RESPOSTA", "ID DA RESPOSTA", "ID") if key in headers), None)
+    distance_col = headers.get(normalize_header("DISTÂNCIA GPS"))
+    users: dict[str, dict[str, object]] = {}
+    for row_number in range(2, data_sheet.max_row + 1):
+        raw_user = data_sheet.cell(row_number, user_col).value
+        user = str(raw_user).strip() if raw_user is not None else ""
+        if not user:
+            user = "Usuário não informado"
+        record = users.setdefault(user, {"pix": set(), "ids": set(), "count": 0, "km": 0.0, "amount": 0.0})
+        raw_id = data_sheet.cell(row_number, id_col).value if id_col else None
+        unique_id = str(raw_id).strip() if raw_id is not None else ""
+        identity = unique_id or f"linha:{row_number}"
+        if identity in record["ids"]:
+            continue
+        record["ids"].add(identity)
+        record["count"] += 1
+        pix = data_sheet.cell(row_number, pix_col).value if pix_col else None
+        if pix is not None and str(pix).strip():
+            record["pix"].add(str(pix).strip())
+        amount = parse_number(data_sheet.cell(row_number, value_col).value)
+        if amount is not None:
+            record["amount"] += amount
+        distance = parse_number(data_sheet.cell(row_number, distance_col).value) if distance_col else None
+        if distance is not None:
+            record["km"] += distance
+
+    if PAYMENT_SHEET in workbook.sheetnames:
+        del workbook[PAYMENT_SHEET]
+    summary = workbook.create_sheet(PAYMENT_SHEET)
+    summary.append(["Usuário", "PIX", "Checklists", "Distância GPS (km)", "Total a pagar (R$)"])
+    for user, record in sorted(users.items(), key=lambda item: (-float(item[1]["amount"]), item[0].casefold())):
+        pix_values = record["pix"]
+        pix = next(iter(pix_values)) if len(pix_values) == 1 else ("Chaves divergentes" if pix_values else "")
+        summary.append([user, pix, record["count"], round(record["km"], 2), round(record["amount"], 2)])
+
+    if users:
+        total_row = summary.max_row + 1
+        summary.cell(total_row, 1, "TOTAL GERAL")
+        summary.cell(total_row, 3, sum(int(record["count"]) for record in users.values()))
+        summary.cell(total_row, 4, round(sum(float(record["km"]) for record in users.values()), 2))
+        summary.cell(total_row, 5, round(sum(float(record["amount"]) for record in users.values()), 2))
+        for cell in summary[total_row]:
+            cell.font = Font(name="Aptos", size=10, bold=True, color="101C2B")
+            cell.fill = PatternFill("solid", fgColor="FCE4D6")
+
+        chart = BarChart()
+        chart.type = "bar"
+        chart.style = 10
+        chart.title = "Total a pagar por usuário"
+        chart.y_axis.title = "Usuário"
+        chart.x_axis.title = "Valor (R$)"
+        chart.height = max(7, min(14, 4 + len(users) * 0.35))
+        chart.width = 18
+        chart.add_data(Reference(summary, min_col=5, min_row=1, max_row=total_row - 1), titles_from_data=True)
+        chart.set_categories(Reference(summary, min_col=1, min_row=2, max_row=total_row - 1))
+        chart.legend = None
+        chart.series[0].graphicalProperties.solidFill = "F36C21"
+        summary.add_chart(chart, "G2")
+
+    for cell in summary[1]:
+        cell.font = Font(name="Aptos", size=10, bold=True, color="101C2B")
+        cell.fill = PatternFill("solid", fgColor="FCE4D6")
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cell.border = Border(bottom=Side(style="medium", color="F36C21"))
+    for row in summary.iter_rows(min_row=2, max_row=summary.max_row):
+        for cell in row:
+            if cell.row != summary.max_row or cell.column not in (1, 3, 4, 5):
+                cell.font = Font(name="Aptos", size=10, color="26384B")
+            if cell.column == 4:
+                cell.number_format = "#,##0.00"
+            elif cell.column == 5:
+                cell.number_format = '"R$" #,##0.00'
+    summary.freeze_panes = "A2"
+    summary.sheet_view.showGridLines = False
+    summary.sheet_view.zoomScale = 95
+    summary.sheet_properties.tabColor = "F36C21"
+    summary.row_dimensions[1].height = 34
+    for column, width in {"A": 32, "B": 36, "C": 16, "D": 22, "E": 22}.items():
+        summary.column_dimensions[column].width = width
+    if users:
+        table = Table(displayName="ResumoPagamentos", ref=f"A1:E{summary.max_row - 1}")
+        table.tableStyleInfo = TableStyleInfo(name="TableStyleMedium2", showRowStripes=True, showColumnStripes=False)
+        summary.add_table(table)
 
 
 def output_filename(original_name: str) -> str:
