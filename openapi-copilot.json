@@ -2,7 +2,7 @@
   "swagger": "2.0",
   "info": {
     "title": "Calculador de Rotas",
-    "description": "Assistente para importar checklists concluídos, calcular rotas e entregar Excel. Para processar, obtenha os registros da lista Controle de Dados Pagamentos pela ação SharePoint e envie somente Usuário e Chave PIX em pix_por_usuario. Com mês e ano definidos, chame processarPeriodo uma única vez. O Excel inclui a coluna PIX associada ao usuário; o PIX não aparece na prévia do chat. Apresente arquivo.url_download como link clicável quando retornado.",
+    "description": "Assistente para importar checklists concluídos, calcular rotas e entregar Excel. Para processar, obtenha os registros da lista Controle de Dados Pagamentos pela ação SharePoint e envie somente Usuário e Chave PIX em pix_por_usuario. Inicie o cálculo por iniciarProcessamento e consulte consultarProcessamento até terminar. O Excel inclui a coluna PIX associada ao usuário; o PIX não aparece na prévia do chat. Apresente arquivo.url_download como link clicável quando retornado.",
     "version": "1.0.0"
   },
   "host": "calculador-de-rotas-api.onrender.com",
@@ -37,7 +37,7 @@
       "get": {
         "operationId": "listarOpcoes",
         "summary": "Listar meses, filtros e operações aceitos",
-        "description": "Use somente quando a pessoa perguntar quais operações, meses ou filtros são aceitos. Não chame antes de processar: os parâmetros estão descritos aqui e no contrato da operação processarPeriodo.",
+        "description": "Use somente quando a pessoa perguntar quais operações, meses ou filtros são aceitos. Para cálculo de rotas por agente, use iniciarProcessamento e consultarProcessamento.",
         "security": [{"apiKeyHeader": []}],
         "responses": {
           "200": {
@@ -51,8 +51,9 @@
     "/processar": {
       "post": {
         "operationId": "processarPeriodo",
-        "summary": "Importar checklists, calcular rotas e preparar o Excel",
-        "description": "Use uma única vez quando o usuário pedir dados, indicadores ou Excel e mês e ano estiverem definidos. Antes, consulte a lista Controle de Dados Pagamentos pela ação SharePoint/fluxo do agente. Envie somente os campos Usuário e Chave PIX no parâmetro pix_por_usuario. Não envie CPF ou dados bancários. Filtros alteram apenas o resumo e a prévia; o Excel preserva todos os registros do período e inclui a coluna PIX associada ao usuário do Checklist Fácil. O PIX não aparece na prévia. Apresente arquivo.url_download se existir.",
+        "summary": "LEGADO — Importar checklists, calcular rotas e preparar o Excel (síncrono)",
+        "description": "Compatibilidade para clientes antigos. Agentes devem usar iniciarProcessamento e consultarProcessamento para evitar timeout. Para processar, consulte a lista Controle de Dados Pagamentos pela ação SharePoint do agente e envie somente Usuário e Chave PIX em pix_por_usuario; não envie CPF nem dados bancários.",
+        "deprecated": true,
         "security": [{"apiKeyHeader": []}],
         "parameters": [
           {
@@ -75,11 +76,52 @@
         }
       }
     },
+    "/processar-assincrono": {
+      "post": {
+        "operationId": "iniciarProcessamento",
+        "summary": "Iniciar cálculo de rotas em segundo plano",
+        "description": "Use uma única vez com mês, ano e pares de Usuário/Chave PIX consultados pelo agente. A resposta é rápida e contém job_id. Não repita esta chamada para o mesmo pedido; use consultarProcessamento com esse job_id até status=concluido ou status=falhou. A consulta SharePoint deve continuar sendo feita pelo agente, respeitando as permissões atuais.",
+        "security": [{"apiKeyHeader": []}],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "Mesmo corpo de ProcessarRequest.",
+            "schema": {"$ref": "#/definitions/ProcessarRequest"}
+          }
+        ],
+        "responses": {
+          "200": {"description": "Trabalho aceito em segundo plano.", "schema": {"$ref": "#/definitions/ProcessJobAccepted"}},
+          "401": {"description": "Chave inválida.", "schema": {"$ref": "#/definitions/ErroResponse"}},
+          "422": {"description": "Parâmetros incompatíveis.", "schema": {"$ref": "#/definitions/ErroResponse"}},
+          "429": {"description": "Fila ocupada; aguarde Retry-After antes de iniciar outro pedido.", "schema": {"$ref": "#/definitions/ErroResponse"}},
+          "503": {"description": "Serviço não configurado.", "schema": {"$ref": "#/definitions/ErroResponse"}}
+        }
+      }
+    },
+    "/processar-assincrono/{job_id}": {
+      "get": {
+        "operationId": "consultarProcessamento",
+        "summary": "Consultar estado do cálculo em segundo plano",
+        "description": "Consulte usando o job_id retornado por iniciarProcessamento. Use aguardar_segundos=15 para aguardar sem fazer polling frequente. Repita com o mesmo job_id até status=concluido ou status=falhou.",
+        "security": [{"apiKeyHeader": []}],
+        "parameters": [
+          {"name": "job_id", "in": "path", "required": true, "type": "string", "format": "uuid"},
+          {"name": "aguardar_segundos", "in": "query", "required": false, "type": "integer", "default": 15, "minimum": 0, "maximum": 15}
+        ],
+        "responses": {
+          "200": {"description": "Estado atual; quando concluído contém resultado completo e link da planilha.", "schema": {"$ref": "#/definitions/ProcessJobStatusResponse"}},
+          "401": {"description": "Chave inválida.", "schema": {"$ref": "#/definitions/ErroResponse"}},
+          "404": {"description": "Trabalho inexistente ou expirado.", "schema": {"$ref": "#/definitions/ErroResponse"}}
+        }
+      }
+    },
     "/gerar-planilha": {
       "post": {
         "operationId": "renovarLinkPlanilha",
         "summary": "Renovar o link de uma planilha já processada",
-        "description": "Use com o arquivo.id devolvido por processarPeriodo quando o link anterior estiver perto de expirar. Não refaz o cálculo.",
+        "description": "Use com arquivo.id devolvido por um cálculo concluído quando o link anterior estiver perto de expirar. Não refaz o cálculo.",
         "security": [{"apiKeyHeader": []}],
         "parameters": [
           {
@@ -137,7 +179,7 @@
         "ano": {"type": "integer", "minimum": 2015, "maximum": 2100, "description": "Ano de conclusão."},
         "mes": {"type": "integer", "minimum": 1, "maximum": 12, "description": "Mês de conclusão."},
         "filtros": {"$ref": "#/definitions/FiltrosAnalise"},
-        "limite_previa": {"type": "integer", "minimum": 0, "maximum": 50, "default": 10},
+        "limite_previa": {"type": "integer", "minimum": 0, "maximum": 50, "default": 0},
         "pix_por_usuario": {
           "type": "array",
           "maxItems": 5000,
@@ -194,6 +236,26 @@
         "previa": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
         "avisos": {"type": "array", "items": {"type": "string"}},
         "arquivo": {"$ref": "#/definitions/ArquivoTemporario"}
+      }
+    },
+    "ProcessJobAccepted": {
+      "type": "object",
+      "required": ["job_id", "status", "mensagem"],
+      "properties": {
+        "job_id": {"type": "string", "format": "uuid"},
+        "status": {"type": "string", "enum": ["na_fila", "processando"]},
+        "mensagem": {"type": "string"}
+      }
+    },
+    "ProcessJobStatusResponse": {
+      "type": "object",
+      "required": ["job_id", "status", "mensagem"],
+      "properties": {
+        "job_id": {"type": "string", "format": "uuid"},
+        "status": {"type": "string", "enum": ["na_fila", "processando", "concluido", "falhou"]},
+        "mensagem": {"type": "string"},
+        "resultado": {"$ref": "#/definitions/ProcessarResponse"},
+        "erro": {"type": "string"}
       }
     },
     "GerarPlanilhaRequest": {

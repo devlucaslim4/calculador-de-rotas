@@ -72,7 +72,7 @@ class CalculadorService:
         *,
         filters: dict[str, object] | None = None,
         pix_records: list[dict[str, str]] | None = None,
-        preview_limit: int = 10,
+        preview_limit: int = 0,
     ) -> CalculationResult:
         process_started = time.perf_counter()
         client = self.client_factory(self.settings.checklist_api_token)
@@ -167,13 +167,18 @@ class CalculadorService:
         pix_by_identity = build_pix_index(pix_records)
         alias_by_name = checklist_user_aliases(snapshot.users)
         enriched = transformed.all_rows.copy()
-        enriched.insert(3, "PIX", None)
-        matched = 0
-        for index, row in enriched.iterrows():
-            pix = find_unambiguous_pix(row.get("NOME"), alias_by_name, pix_by_identity)
-            if pix is not None:
-                enriched.at[index, "PIX"] = pix
-                matched += 1
+        user_names = enriched["NOME"].dropna().unique()
+        pix_by_name = {
+            name: find_unambiguous_pix(name, alias_by_name, pix_by_identity)
+            for name in user_names
+        }
+        enriched["PIX"] = enriched["NOME"].map(pix_by_name)
+        enriched["VALOR"] = None
+        remaining_columns = [
+            column for column in enriched.columns if column not in {"PIX", "VALOR"}
+        ]
+        enriched = enriched[remaining_columns + ["PIX", "VALOR"]]
+        matched = int(enriched["PIX"].notna().sum())
         transformed = transformed.__class__(
             all_rows=enriched,
             valid_rows=enriched.loc[enriched["VALIDAÇÃO"].eq("Válida")].reset_index(drop=True),

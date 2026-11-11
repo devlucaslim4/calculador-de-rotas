@@ -27,8 +27,7 @@ except ImportError:  # pragma: no cover - a dependência é instalada em produç
 
 import requests
 from openpyxl import load_workbook
-from openpyxl.styles import Font, PatternFill
-from openpyxl.utils import get_column_letter
+from workbook_style import style_worksheet
 
 LOGGER = logging.getLogger(__name__)
 OSRM_URL = "https://router.project-osrm.org/route/v1/driving"
@@ -411,11 +410,13 @@ def process_workbook(
     progress_callback: Callable[[int, int], None] | None = None,
     route_function: Callable[[object, object], RouteResult] = calculate_route,
 ) -> ProcessingSummary:
+    processing_started = time.perf_counter()
     try:
         workbook = load_workbook(BytesIO(file_bytes))
     except Exception as exc:
         LOGGER.exception("Não foi possível abrir a planilha")
         raise SpreadsheetError("O arquivo não é uma planilha Excel válida ou está corrompido.") from exc
+    workbook_loaded_at = time.perf_counter()
 
     worksheet = workbook.active
     if worksheet.max_row < 2:
@@ -503,6 +504,8 @@ def process_workbook(
                 if progress_callback:
                     progress_callback(completed, total)
 
+    routes_finished_at = time.perf_counter()
+
     calculated = 0
     for row, _, _ in rows:
         result = results[row]
@@ -548,26 +551,26 @@ def process_workbook(
         if result.status == "Calculada":
             calculated += 1
 
-    styled_columns = [
-        (result_columns["DISTÂNCIA GPS"], "DISTÂNCIA GPS", 18),
-        (result_columns["STATUS DA ROTA"], "STATUS DA ROTA", 32),
-        (result_columns["LINK DA ROTA"], "LINK DA ROTA", 18),
-        (value_col, VALUE_HEADER, 18),
-    ]
-    if odometer_distance_col is not None:
-        styled_columns.append((odometer_distance_col, ODOMETER_DISTANCE_HEADER, 24))
-    if percent_difference_col is not None:
-        styled_columns.append((percent_difference_col, PERCENT_DIFFERENCE_HEADER, 25))
-    for column, header, width in styled_columns:
-        header_cell = worksheet.cell(1, column)
-        header_cell.value = header
-        header_cell.font = Font(bold=True, color="FFFFFF")
-        header_cell.fill = PatternFill("solid", fgColor="2563EB")
-        worksheet.column_dimensions[get_column_letter(column)].width = width
+    style_worksheet(worksheet)
+    styled_at = time.perf_counter()
 
     output = BytesIO()
     workbook.save(output)
-    return ProcessingSummary(output.getvalue(), total, calculated, total - calculated)
+    result = ProcessingSummary(output.getvalue(), total, calculated, total - calculated)
+    finished_at = time.perf_counter()
+    LOGGER.info(
+        "Workbook stage timings",
+        extra={
+            "records": total,
+            "unique_routes": len(rows_by_pair) if route_function is calculate_route else total,
+            "workbook_load_ms": round((workbook_loaded_at - processing_started) * 1000),
+            "route_calculation_ms": round((routes_finished_at - workbook_loaded_at) * 1000),
+            "workbook_style_ms": round((styled_at - routes_finished_at) * 1000),
+            "workbook_save_ms": round((finished_at - styled_at) * 1000),
+            "total_ms": round((finished_at - processing_started) * 1000),
+        },
+    )
+    return result
 
 
 def output_filename(original_name: str) -> str:

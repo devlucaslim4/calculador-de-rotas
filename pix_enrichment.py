@@ -40,7 +40,8 @@ def build_pix_index(records: list[dict[str, str]]) -> dict[str, set[str]]:
     index: dict[str, set[str]] = {}
     for record in records:
         identity = normalize_identity(record.get("usuario"))
-        pix = str(record.get("pix", "")).strip()
+        pix_value = record.get("pix")
+        pix = "" if pix_value is None else str(pix_value).strip()
         if identity and pix:
             index.setdefault(identity, set()).add(pix)
     return index

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from calendar import monthrange
 from datetime import date
-from typing import Annotated, Any, Self
+from typing import Annotated, Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
@@ -13,6 +13,10 @@ FilterValue = Annotated[
     StringConstraints(strip_whitespace=True, min_length=1, max_length=200),
 ]
 PixField = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, max_length=320),
+]
+PixUserField = Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=1, max_length=320),
 ]
@@ -58,8 +62,11 @@ class FiltrosAnalise(BaseModel):
 class PixPorUsuario(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    usuario: PixField = Field(description="Valor da coluna Usuário da lista SharePoint.")
-    pix: PixField = Field(description="Valor da coluna Chave PIX da lista SharePoint.")
+    usuario: PixUserField = Field(description="Valor da coluna Usuário da lista SharePoint.")
+    pix: PixField | None = Field(
+        default=None,
+        description="Valor da coluna Chave PIX; pode ficar vazio enquanto não houver chave cadastrada.",
+    )
 
 
 class ProcessarRequest(BaseModel):
@@ -72,10 +79,13 @@ class ProcessarRequest(BaseModel):
         description="Filtros opcionais aplicados somente ao resumo e à prévia.",
     )
     limite_previa: int = Field(
-        default=10,
+        default=0,
         ge=0,
         le=50,
-        description="Quantidade máxima de linhas reais devolvidas no JSON.",
+        description=(
+            "Quantidade máxima de linhas reais devolvidas no JSON. O padrão zero reduz "
+            "o tamanho e o tempo da resposta; informe valor maior quando precisar de prévia."
+        ),
     )
     pix_por_usuario: list[PixPorUsuario] = Field(
         max_length=5000,
@@ -126,6 +136,20 @@ class ProcessarResponse(BaseModel):
     previa: list[dict[str, Any]]
     avisos: list[str]
     arquivo: ArquivoTemporario | None = None
+
+
+class ProcessJobAccepted(BaseModel):
+    job_id: str = Field(description="Identificador temporário do processamento em segundo plano.")
+    status: Literal["na_fila", "processando"]
+    mensagem: str
+
+
+class ProcessJobStatusResponse(BaseModel):
+    job_id: str
+    status: Literal["na_fila", "processando", "concluido", "falhou"]
+    mensagem: str
+    resultado: ProcessarResponse | None = None
+    erro: str | None = None
 
 
 class GerarPlanilhaRequest(BaseModel):

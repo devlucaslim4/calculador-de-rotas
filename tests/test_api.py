@@ -221,6 +221,52 @@ def test_process_returns_real_result_and_signed_download():
     assert "checklists_2026_10_tratada.xlsx" in download.headers["content-disposition"]
 
 
+def test_async_process_returns_job_and_reuses_existing_calculation():
+    app, calculator = _app(_test_path())
+    started = _sync_request(
+        app,
+        "POST",
+        "/api/processar-assincrono",
+        headers={"X-API-Key": "segredo-copilot"},
+        json_body={
+            "ano": 2026,
+            "mes": 10,
+            "pix_por_usuario": [{"usuario": "ana@exemplo.com", "pix": "pix-teste"}],
+        },
+    )
+
+    assert started.status_code == 200
+    job_id = started.json()["job_id"]
+    assert started.json()["status"] in {"na_fila", "processando"}
+
+    completed = _sync_request(
+        app,
+        "GET",
+        f"/api/processar-assincrono/{job_id}?aguardar_segundos=15",
+        headers={"X-API-Key": "segredo-copilot"},
+    )
+    assert completed.status_code == 200
+    body = completed.json()
+    assert body["status"] == "concluido"
+    assert body["resultado"]["contagens"]["rotas_calculadas"] == 1
+    assert body["resultado"]["arquivo"]["url_download"].startswith(
+        "https://api.example.test/"
+    )
+    assert len(calculator.calls) == 1
+
+
+def test_async_process_status_requires_valid_job_id():
+    app, _ = _app(_test_path())
+    missing = _sync_request(
+        app,
+        "GET",
+        "/api/processar-assincrono/00000000-0000-0000-0000-000000000000",
+        headers={"X-API-Key": "segredo-copilot"},
+    )
+    assert missing.status_code == 404
+    assert missing.json()["erro"] == "processamento_indisponivel"
+
+
 def test_invalid_download_token_and_renewal():
     app, _ = _app(_test_path())
     processed = (

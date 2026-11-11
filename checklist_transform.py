@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 from openpyxl import Workbook
-from openpyxl.styles import Alignment, Font, PatternFill
+from workbook_style import style_worksheet
 
 from checklist_api import ChecklistSnapshot, DEFAULT_TIMEZONE, index_by_id, parse_api_datetime
 
@@ -404,31 +404,7 @@ def _write_dataframe(worksheet, dataframe: pd.DataFrame) -> None:
     worksheet.append(list(dataframe.columns))
     for row in dataframe.itertuples(index=False, name=None):
         worksheet.append([_safe_excel_value(value) for value in row])
-    worksheet.freeze_panes = "A2"
-    worksheet.auto_filter.ref = worksheet.dimensions
-    worksheet.row_dimensions[1].height = 30
-    for cell in worksheet[1]:
-        cell.font = Font(bold=True, color="FFFFFF")
-        cell.fill = PatternFill("solid", fgColor="2563EB")
-        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-    widths = {
-        "A": 24, "B": 16, "C": 28, "D": 22, "E": 24, "F": 28,
-        "G": 21, "H": 21, "I": 28, "J": 24, "K": 28, "L": 24,
-        "M": 28, "N": 22, "O": 24, "P": 52, "Q": 25, "R": 20,
-        "S": 28, "T": 18,
-    }
-    for column, width in widths.items():
-        if worksheet.max_column >= ord(column) - 64:
-            worksheet.column_dimensions[column].width = width
-    for row in worksheet.iter_rows(min_row=2):
-        for cell in row:
-            if cell.column in (7, 8) and isinstance(cell.value, datetime):
-                cell.number_format = "dd/mm/yyyy hh:mm:ss"
-            elif cell.column in (10, 12, 15, 18) and isinstance(cell.value, (int, float)):
-                cell.number_format = "0.00"
-            elif cell.column == 17 and isinstance(cell.value, (int, float)):
-                cell.number_format = "0.00%"
-            cell.alignment = Alignment(vertical="top", wrap_text=False)
+    style_worksheet(worksheet)
 
 
 def build_standardized_workbook(result: TransformationResult) -> bytes:
