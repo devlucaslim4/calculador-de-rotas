@@ -198,6 +198,48 @@ def test_process_workbook_preserves_sheets_and_writes_results():
     assert sheet.cell(3, headers["LINK DA ROTA"]).value is None
 
 
+def test_payment_summary_groups_checklists_by_user_pix_and_unit():
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Rotas"
+    sheet.append(
+        [
+            "ID RESPOSTA",
+            "NOME",
+            "UNIDADE",
+            "COORDENADA GPS INICIAL",
+            "COORDENADA GPS FINAL",
+            "PIX",
+        ]
+    )
+    sheet.append([101, "Ana", "Unidade A", "-23.5, -46.6", "-22.9, -43.2", "12345678901"])
+    sheet.append([102, "Ana", "Unidade B", "-23.5, -46.6", "-22.9, -43.2", "12345678901"])
+    existing_hidden = workbook.create_sheet("_DadosResumoPagamentos")
+    existing_hidden.sheet_state = "hidden"
+    existing_hidden["A1"] = "Aba original preservada"
+    output = BytesIO()
+    workbook.save(output)
+
+    summary = process_workbook(output.getvalue(), route_function=fake_route)
+    result = load_workbook(BytesIO(summary.workbook))
+    payments = result["Resumo de pagamentos"]
+
+    assert payments["A2"].value == "Ana"
+    assert payments["D2"].value == 855.56
+    assert payments["A3"].value == "12345678901"
+    assert payments["D3"].value == 855.56
+    assert payments["A4"].value == "Unidade A"
+    assert payments["D4"].value == 427.78
+    assert payments["A5"].value == "Unidade B"
+    assert payments["D5"].value == 427.78
+    assert payments["A6"].value == "TOTAL GERAL"
+    assert payments["D6"].value == 855.56
+    assert payments.row_dimensions[3].outlineLevel == 1
+    assert payments.row_dimensions[4].outlineLevel == 2
+    assert result["_DadosResumoPagamentos"]["A1"].value == "Aba original preservada"
+    assert result["_DadosResumoPagamentos2"].sheet_state == "hidden"
+
+
 def test_output_filename_uses_uploaded_name():
     assert output_filename("rotas_junho.xlsx") == "rotas_junho_com_distancia_gps.xlsx"
 
