@@ -665,6 +665,7 @@ def _render_payment_summary(analysis: AnalysisData, filtered: pd.DataFrame, ligh
 
     id_column = analysis.columns.get("id")
     user_column = analysis.columns.get("usuario")
+    unit_column = analysis.columns.get("unidade")
     pix_column = by_normalized.get("PIX")
     distance_column = by_normalized.get("DISTANCIA GPS") or analysis.columns.get("distancia_gps")
     checklist_rows = analysis.unique_routes(filtered).copy()
@@ -692,6 +693,16 @@ def _render_payment_summary(analysis: AnalysisData, filtered: pd.DataFrame, ligh
         if name_column else "Usuário não informado"
     )
     checklist_rows["__usuario_pagamento"] = checklist_rows["__usuario_pagamento"].replace("", "Usuário não informado")
+    if unit_column:
+        checklist_rows["__unidade_pagamento"] = (
+            checklist_rows[unit_column].fillna("Unidade não informada").astype(str).str.strip()
+        )
+        checklist_rows["__unidade_pagamento"] = checklist_rows["__unidade_pagamento"].replace(
+            "", "Unidade não informada"
+        )
+    group_columns = ["__usuario_pagamento"]
+    if unit_column:
+        group_columns.append("__unidade_pagamento")
     valid_amounts = checklist_rows["__valor_pagamento"].dropna()
     if valid_amounts.empty:
         st.info("Ainda não há valores calculados disponíveis para os checklists filtrados.")
@@ -704,26 +715,59 @@ def _render_payment_summary(analysis: AnalysisData, filtered: pd.DataFrame, ligh
     metrics[1].metric("Checklists com valor", f"{amount_count:,}".replace(",", "."))
     metrics[2].metric("Valor médio por checklist", f"R$ {total / amount_count:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
 
-    grouped = checklist_rows.groupby("__usuario_pagamento", dropna=False).agg(
+    grouped = checklist_rows.groupby(group_columns, dropna=False).agg(
         Checklists=("__valor_pagamento", "size"),
         **{"Total a pagar (R$)": ("__valor_pagamento", "sum"), "Distância GPS (km)": ("__km_pagamento", "sum")},
-    ).reset_index().rename(columns={"__usuario_pagamento": "Usuário"})
+    ).reset_index()
     if pix_column:
-        pix_values = checklist_rows.groupby("__usuario_pagamento")[pix_column].agg(
+        pix_values = checklist_rows.groupby(group_columns, dropna=False)[pix_column].agg(
             lambda values: sorted({str(value).strip() for value in values.dropna() if str(value).strip()})
         )
-        grouped["PIX"] = grouped["Usuário"].map(
-            lambda user: (pix_values.get(user, [])[0] if len(pix_values.get(user, [])) == 1
-                          else "Chaves divergentes" if pix_values.get(user, []) else "")
+        pix_summary = pix_values.rename("__chaves_pix").reset_index()
+        grouped = grouped.merge(pix_summary, on=group_columns, how="left")
+        grouped["PIX"] = grouped["__chaves_pix"].map(
+            lambda values: (
+                values[0]
+                if isinstance(values, list) and len(values) == 1
+                else "Chaves divergentes"
+                if isinstance(values, list) and values
+                else ""
+            )
         )
-        grouped = grouped[["Usuário", "PIX", "Checklists", "Distância GPS (km)", "Total a pagar (R$)"]]
+        grouped = grouped.drop(columns="__chaves_pix")
+    grouped = grouped.rename(
+        columns={
+            "__usuario_pagamento": "Usuário",
+            "__unidade_pagamento": "Unidade",
+        }
+    )
+    if pix_column:
+        summary_columns = ["Usuário"]
+        if unit_column:
+            summary_columns.append("Unidade")
+        summary_columns.extend(["PIX", "Checklists", "Distância GPS (km)", "Total a pagar (R$)"])
+        grouped = grouped[summary_columns]
     grouped = grouped.sort_values("Total a pagar (R$)", ascending=False)
 
+    chart_data = grouped
+    chart_x = "Usuário"
+    chart_title = "Total a pagar por usuário"
+    if unit_column:
+        chart_data = grouped.groupby("Unidade", as_index=False).agg(
+            **{
+                "Total a pagar (R$)": ("Total a pagar (R$)", "sum"),
+                "Checklists": ("Checklists", "sum"),
+                "Distância GPS (km)": ("Distância GPS (km)", "sum"),
+            }
+        ).sort_values("Total a pagar (R$)", ascending=False)
+        chart_x = "Unidade"
+        chart_title = "Total a pagar por unidade"
+
     chart = px.bar(
-        grouped,
-        x="Usuário",
+        chart_data,
+        x=chart_x,
         y="Total a pagar (R$)",
-        title="Total a pagar por usuário",
+        title=chart_title,
         color_discrete_sequence=["#F36C21"],
         hover_data={"Checklists": True, "Distância GPS (km)": ":.2f"},
     )
@@ -737,7 +781,7 @@ def _render_payment_summary(analysis: AnalysisData, filtered: pd.DataFrame, ligh
     )
     chart.update_yaxes(tickprefix="R$ ", gridcolor="rgba(167,183,200,.10)")
     st.plotly_chart(chart, width="stretch")
-    st.subheader("Resumo de pagamento por usuário")
+    st.subheader("Resumo de pagamento por unidade e usuário" if unit_column else "Resumo de pagamento por usuário")
     st.dataframe(
         grouped,
         width="stretch",
@@ -757,6 +801,9 @@ def _render_payment_summary(analysis: AnalysisData, filtered: pd.DataFrame, ligh
     if user_column:
         detail_columns.append(user_column)
         labels[user_column] = "Usuário"
+    if unit_column:
+        detail_columns.append(unit_column)
+        labels[unit_column] = "Unidade"
     if pix_column:
         detail_columns.append(pix_column)
         labels[pix_column] = "PIX"
