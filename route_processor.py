@@ -69,6 +69,7 @@ ODOMETER_FINAL_HEADERS = (
 )
 ODOMETER_DISTANCE_HEADER = "DISTÂNCIA HODÔMETRO"
 PERCENT_DIFFERENCE_HEADER = "PERCENTUAL DIFERENÇA %"
+IGNORED_USER_TYPES = {"SEGURANCA DO TRABALHO OPERACAO - SESMT"}
 
 
 class SpreadsheetError(ValueError):
@@ -107,6 +108,11 @@ def normalize_header(value: object) -> str:
     text = "" if value is None else str(value)
     text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
     return re.sub(r"\s+", " ", text).strip().upper()
+
+
+def is_ignored_user_type(value: object) -> bool:
+    """Identifica tipos de usuário que não devem entrar no arquivo nem nos pagamentos."""
+    return normalize_header(value) in IGNORED_USER_TYPES
 
 
 def parse_coordinate(value: object) -> tuple[float, float] | None:
@@ -426,6 +432,23 @@ def process_workbook(
     if worksheet.max_row < 2:
         raise SpreadsheetError("A planilha está vazia. Inclua ao menos uma linha de dados.")
     initial_col, final_col, headers = _find_headers(worksheet)
+
+    # SESMT não participa do cálculo de pagamento. Removemos essas linhas antes
+    # de calcular rotas, VALOR, contagens e resumos, para que não apareçam em
+    # nenhuma aba do Excel gerado.
+    user_type_col = headers.get(normalize_header("TIPO DE USUÁRIO"))
+    if user_type_col is not None:
+        excluded_rows = [
+            row
+            for row in range(2, worksheet.max_row + 1)
+            if is_ignored_user_type(worksheet.cell(row, user_type_col).value)
+        ]
+        for row in reversed(excluded_rows):
+            worksheet.delete_rows(row, 1)
+        if worksheet.max_row < 2:
+            raise SpreadsheetError(
+                "Todos os registros são do tipo Segurança do trabalho Operação - SESMT e foram excluídos do arquivo e dos pagamentos."
+            )
     total = worksheet.max_row - 1
 
     result_columns: dict[str, int] = {}

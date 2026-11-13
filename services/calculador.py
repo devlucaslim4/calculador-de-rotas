@@ -19,7 +19,7 @@ from analysis_engine import apply_filters, build_audit, calculate_metrics, prepa
 from api.config import ApiSettings
 from checklist_api import ChecklistApiClient
 from checklist_transform import build_standardized_workbook, transformar_checklists_em_planilha
-from route_processor import ProcessingSummary, process_workbook
+from route_processor import ProcessingSummary, is_ignored_user_type, process_workbook
 from pix_enrichment import (
     PixDataMissingError,
     build_pix_index,
@@ -98,6 +98,21 @@ class CalculadorService:
             self.settings.item_mapping,
             timezone_name=self.settings.timezone_name,
         )
+        ignored_count = 0
+        if "TIPO DE USUÁRIO" in transformed.all_rows.columns:
+            ignored_mask = transformed.all_rows["TIPO DE USUÁRIO"].map(is_ignored_user_type)
+            ignored_count = int(ignored_mask.sum())
+            if ignored_count:
+                remaining_rows = transformed.all_rows.loc[~ignored_mask].reset_index(drop=True)
+                valid_mask = remaining_rows["VALIDAÇÃO"].eq("Válida")
+                transformed = transformed.__class__(
+                    all_rows=remaining_rows,
+                    valid_rows=remaining_rows.loc[valid_mask].reset_index(drop=True),
+                    inconsistent_rows=remaining_rows.loc[~valid_mask].reset_index(drop=True),
+                    resolved_mapping=transformed.resolved_mapping,
+                    mapping_warnings=transformed.mapping_warnings,
+                    duplicate_count=transformed.duplicate_count,
+                )
         LOGGER.info(
             "Checklist records transformed",
             extra={
@@ -107,6 +122,11 @@ class CalculadorService:
             },
         )
         warnings = list(transformed.mapping_warnings)
+        if ignored_count:
+            warnings.append(
+                f"{ignored_count} checklist(s) do tipo Segurança do trabalho Operação - SESMT "
+                "foram ignorados e não entram na planilha nem nos cálculos de pagamento."
+            )
         if transformed.duplicate_count:
             warnings.append(
                 f"{transformed.duplicate_count} registro(s) duplicado(s) foram "
