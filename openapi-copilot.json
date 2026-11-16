@@ -2,7 +2,7 @@
   "swagger": "2.0",
   "info": {
     "title": "Calculador de Rotas",
-    "description": "Assistente para importar checklists concluídos, calcular rotas e entregar Excel. Para processar, obtenha registros da lista Consulta de Pagamentos pela ação SharePoint e envie Usuário, Nome completo e Chave PIX em pix_por_usuario; nunca envie CPF nem dados bancários. Inicie o cálculo por iniciarProcessamento e consulte consultarProcessamento até terminar. O Excel associa PIX e, quando a correspondência for única, usa o Nome completo da lista SharePoint; PIX não aparece na prévia do chat. Apresente arquivo.url_download como link clicável quando retornado.",
+    "description": "Importa checklists concluídos, calcula rotas e gera Excel. Envie apenas Usuário, Nome e Chave PIX da lista SharePoint; não envie CPF ou dados bancários. Use iniciarProcessamento e consultarProcessamento. A planilha inclui PIX e Nome por correspondência única e um link temporário para baixar o arquivo.",
     "version": "1.0.0"
   },
   "host": "calculador-de-rotas-api.onrender.com",
