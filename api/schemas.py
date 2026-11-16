@@ -64,7 +64,6 @@ class PixPorUsuario(BaseModel):
 
     usuario: PixUserField = Field(description="Valor da coluna Usuário da lista SharePoint.")
     nome: PixField | None = Field(
-        default=None,
         description="Valor da coluna Nome completo da lista Consulta de Pagamentos.",
     )
     pix: PixField | None = Field(

@@ -103,7 +103,7 @@ O Streamlit Community Cloud continua hospedando apenas a interface. A FastAPI pr
 
 ### Coluna PIX na planilha do agente
 
-O agente deve consultar a lista `Consulta de Pagamentos` por uma ação/conector SharePoint e enviar `Usuário`, `Nome completo` e `Chave PIX` no campo `pix_por_usuario` de `/api/processar`. O serviço cruza `Usuário` com o perfil do Checklist Fácil, inclui a coluna `PIX` e substitui o identificador por `Nome completo` somente quando a associação é inequívoca. Quando o nome falta ou há ambiguidade, mantém o nome/login original do Checklist Fácil. A coluna PIX não é incluída na prévia JSON do Copilot. Não envie CPF ou dados bancários à API.
+O agente deve consultar a lista `Consulta de Pagamentos` por uma ação/conector SharePoint e enviar sempre `Usuário`, `Nome completo` e `Chave PIX` no campo `pix_por_usuario` de `/api/processar` (o campo `nome` pode ser nulo quando não houver valor). O serviço cruza `Usuário` com o perfil do Checklist Fácil; se a API retornar diretamente o mesmo identificador da lista, também aceita essa correspondência exata. A coluna `PIX` e o nome completo só são associados quando a correspondência é única. Quando o nome falta ou há ambiguidade, mantém o nome/login original do Checklist Fácil. A coluna PIX não é incluída na prévia JSON do Copilot. Não envie CPF ou dados bancários à API.
 
 ## Instalação local
 

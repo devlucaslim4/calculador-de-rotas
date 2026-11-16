@@ -80,7 +80,7 @@
       "post": {
         "operationId": "iniciarProcessamento",
         "summary": "Iniciar cálculo de rotas em segundo plano",
-        "description": "Use uma única vez com mês, ano e registros Usuário/Nome/Chave PIX consultados pelo agente (Nome é opcional). A resposta é rápida e contém job_id. Não repita esta chamada para o mesmo pedido; use consultarProcessamento com esse job_id até status=concluido ou status=falhou. A consulta SharePoint deve continuar sendo feita pelo agente, respeitando as permissões atuais.",
+        "description": "Use uma única vez com mês, ano e registros Usuário/Nome completo/Chave PIX consultados pelo agente. Envie sempre o campo nome da lista SharePoint, mesmo que o valor esteja vazio. A resposta é rápida e contém job_id. Não repita esta chamada para o mesmo pedido; use consultarProcessamento com esse job_id até status=concluido ou status=falhou. A consulta SharePoint deve continuar sendo feita pelo agente, respeitando as permissões atuais.",
         "security": [{"apiKeyHeader": []}],
         "parameters": [
           {
@@ -190,11 +190,11 @@
     },
     "PixPorUsuario": {
       "type": "object",
-      "required": ["usuario", "pix"],
+      "required": ["usuario", "nome", "pix"],
       "additionalProperties": false,
       "properties": {
         "usuario": {"type": "string", "maxLength": 320},
-        "nome": {"type": "string", "maxLength": 320, "description": "Valor da coluna Nome completo da lista Consulta de Pagamentos."},
+        "nome": {"type": "string", "x-nullable": true, "maxLength": 320, "description": "Valor da coluna Nome completo da lista Consulta de Pagamentos; envie a propriedade mesmo se o valor estiver vazio."},
         "pix": {"type": "string", "maxLength": 320}
       }
     },

@@ -70,6 +70,16 @@ def _normalize_pix(value: object) -> tuple[str, str] | None:
     return (f"text:{original}", original)
 
 
+def _exact_unique_value(identity: object, index: dict[str, dict]) -> object | None:
+    """Busca uma identidade exata da lista sem depender dos aliases do perfil."""
+
+    key = normalize_identity(identity)
+    values = index.get(key, {}) if key else {}
+    if len(values) != 1:
+        return None
+    return next(iter(values.values()))
+
+
 @dataclass
 class ChecklistUserAliases:
     """Aliases separados por perfil para bloquear nomes e logins ambíguos."""
@@ -151,8 +161,12 @@ def find_unambiguous_pix(
     profiles = aliases.profiles_by_display.get(name_key, {})
     # Sem ID de usuário na linha do checklist, nomes repetidos não podem ser
     # distinguidos com segurança, mesmo que um dos perfis tenha e-mail cadastrado.
-    if len(profiles) != 1:
+    if len(profiles) > 1:
         return None
+
+    if not profiles:
+        direct = _exact_unique_value(display_name, index)
+        return direct if isinstance(direct, str) else None
 
     profile_id, identity_keys = next(iter(profiles.items()))
     matched: dict[str, str] = {}
@@ -172,7 +186,8 @@ def find_unambiguous_pix(
         matched[canonical] = original
 
     if len(matched) != 1:
-        return None
+        direct = _exact_unique_value(display_name, index)
+        return direct if isinstance(direct, str) else None
     return next(iter(matched.values()))
 
 
@@ -185,8 +200,12 @@ def find_unambiguous_display_name(
 
     name_key = normalize_identity(display_name)
     profiles = aliases.profiles_by_display.get(name_key, {})
-    if len(profiles) != 1:
+    if len(profiles) > 1:
         return None
+
+    if not profiles:
+        direct = _exact_unique_value(display_name, index)
+        return direct if isinstance(direct, str) else None
 
     profile_id, identity_keys = next(iter(profiles.items()))
     matched: dict[str, str] = {}
@@ -195,4 +214,7 @@ def find_unambiguous_display_name(
             continue
         matched.update(index.get(identity, {}))
 
-    return next(iter(matched.values())) if len(matched) == 1 else None
+    if len(matched) == 1:
+        return next(iter(matched.values()))
+    direct = _exact_unique_value(display_name, index)
+    return direct if isinstance(direct, str) else None
