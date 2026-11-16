@@ -63,6 +63,10 @@ class PixPorUsuario(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     usuario: PixUserField = Field(description="Valor da coluna Usuário da lista SharePoint.")
+    nome: PixField | None = Field(
+        default=None,
+        description="Valor da coluna Nome completo da lista Consulta de Pagamentos.",
+    )
     pix: PixField | None = Field(
         default=None,
         description="Valor da coluna Chave PIX; pode ficar vazio enquanto não houver chave cadastrada.",
@@ -91,7 +95,8 @@ class ProcessarRequest(BaseModel):
         max_length=5000,
         description=(
             "Dados estruturados recebidos pela ação SharePoint do agente. Envie somente "
-            "os campos usuario e pix da lista Controle de Dados Pagamentos."
+            "os campos usuario, nome e pix da lista Consulta de Pagamentos. "
+            "Não envie CPF nem dados bancários."
         ),
     )
 

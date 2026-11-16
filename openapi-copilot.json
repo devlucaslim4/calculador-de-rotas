@@ -2,7 +2,7 @@
   "swagger": "2.0",
   "info": {
     "title": "Calculador de Rotas",
-    "description": "Assistente para importar checklists concluídos, calcular rotas e entregar Excel. Para processar, obtenha os registros da lista Controle de Dados Pagamentos pela ação SharePoint e envie somente Usuário e Chave PIX em pix_por_usuario. Inicie o cálculo por iniciarProcessamento e consulte consultarProcessamento até terminar. O Excel inclui a coluna PIX associada ao usuário; o PIX não aparece na prévia do chat. Apresente arquivo.url_download como link clicável quando retornado.",
+    "description": "Assistente para importar checklists concluídos, calcular rotas e entregar Excel. Para processar, obtenha registros da lista Consulta de Pagamentos pela ação SharePoint e envie Usuário, Nome completo e Chave PIX em pix_por_usuario; nunca envie CPF nem dados bancários. Inicie o cálculo por iniciarProcessamento e consulte consultarProcessamento até terminar. O Excel associa PIX e, quando a correspondência for única, usa o Nome completo da lista SharePoint; PIX não aparece na prévia do chat. Apresente arquivo.url_download como link clicável quando retornado.",
     "version": "1.0.0"
   },
   "host": "calculador-de-rotas-api.onrender.com",
@@ -52,7 +52,7 @@
       "post": {
         "operationId": "processarPeriodo",
         "summary": "LEGADO — Importar checklists, calcular rotas e preparar o Excel (síncrono)",
-        "description": "Compatibilidade para clientes antigos. Agentes devem usar iniciarProcessamento e consultarProcessamento para evitar timeout. Para processar, consulte a lista Controle de Dados Pagamentos pela ação SharePoint do agente e envie somente Usuário e Chave PIX em pix_por_usuario; não envie CPF nem dados bancários.",
+        "description": "Compatibilidade para clientes antigos. Agentes devem usar iniciarProcessamento e consultarProcessamento para evitar timeout. Para processar, consulte a lista Consulta de Pagamentos pela ação SharePoint do agente e envie Usuário, Nome completo e Chave PIX em pix_por_usuario; não envie CPF nem dados bancários.",
         "deprecated": true,
         "security": [{"apiKeyHeader": []}],
         "parameters": [
@@ -80,7 +80,7 @@
       "post": {
         "operationId": "iniciarProcessamento",
         "summary": "Iniciar cálculo de rotas em segundo plano",
-        "description": "Use uma única vez com mês, ano e pares de Usuário/Chave PIX consultados pelo agente. A resposta é rápida e contém job_id. Não repita esta chamada para o mesmo pedido; use consultarProcessamento com esse job_id até status=concluido ou status=falhou. A consulta SharePoint deve continuar sendo feita pelo agente, respeitando as permissões atuais.",
+        "description": "Use uma única vez com mês, ano e registros Usuário/Nome/Chave PIX consultados pelo agente (Nome é opcional). A resposta é rápida e contém job_id. Não repita esta chamada para o mesmo pedido; use consultarProcessamento com esse job_id até status=concluido ou status=falhou. A consulta SharePoint deve continuar sendo feita pelo agente, respeitando as permissões atuais.",
         "security": [{"apiKeyHeader": []}],
         "parameters": [
           {
@@ -183,7 +183,7 @@
         "pix_por_usuario": {
           "type": "array",
           "maxItems": 5000,
-          "description": "Passe os pares Usuario/Chave PIX devolvidos pela ação SharePoint do agente.",
+          "description": "Passe os campos usuario, nome e pix devolvidos pela lista Consulta de Pagamentos.",
           "items": {"$ref": "#/definitions/PixPorUsuario"}
         }
       }
@@ -194,6 +194,7 @@
       "additionalProperties": false,
       "properties": {
         "usuario": {"type": "string", "maxLength": 320},
+        "nome": {"type": "string", "maxLength": 320, "description": "Valor da coluna Nome completo da lista Consulta de Pagamentos."},
         "pix": {"type": "string", "maxLength": 320}
       }
     },

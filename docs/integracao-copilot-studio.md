@@ -71,9 +71,9 @@ Variáveis obrigatórias:
 
 A fonte de conhecimento SharePoint permite que o agente pesquise e responda perguntas usando os dados permitidos ao usuário autenticado. Ela não entrega automaticamente todas as linhas como entrada estruturada da API; citações da fonte de conhecimento também não podem ser usadas como entrada de outra ação. Portanto, para preencher o Excel, adicione uma ação do conector SharePoint ou um fluxo do agente que leia os itens da lista e passe os campos à ação `processarPeriodo`.
 
-1. No Copilot Studio, crie um fluxo do agente acionado pelo agente e adicione SharePoint **Obter itens** para a lista `Controle de Dados Pagamentos`.
+1. No Copilot Studio, crie um fluxo do agente acionado pelo agente e adicione SharePoint **Obter itens** para a lista `Consulta de Pagamentos`.
 2. Habilite paginação em **Obter itens** se a lista puder ultrapassar o limite padrão do conector.
-3. Use uma operação **Selecionar** para produzir uma matriz com somente os campos `usuario` (coluna `Usuário`) e `pix` (coluna `Chave PIX`). Não envie CPF nem dados bancários à API.
+3. Use uma operação **Selecionar** para produzir uma matriz com os campos `usuario` (coluna `Usuário`), `nome` (coluna `Nome completo`) e `pix` (coluna `Chave PIX`). Não envie CPF nem dados bancários à API.
 4. Na chamada `POST /api/processar`, passe essa matriz em `pix_por_usuario`, junto com `ano`, `mes` e os demais parâmetros.
 5. Configure a conexão SharePoint do fluxo para usar a identidade do usuário que executa o agente, quando disponível, e restrinja o agente e os arquivos gerados ao grupo autorizado para consultar PIX.
 
@@ -81,11 +81,11 @@ Exemplo do campo enviado no corpo da API:
 
 ```json
 "pix_por_usuario": [
-  {"usuario": "pessoa@empresa.com", "pix": "chave-pix"}
+  {"usuario": "pessoa@empresa.com", "nome": "Nome completo da pessoa", "pix": "chave-pix"}
 ]
 ```
 
-A API cruza por email/login exato quando esse dado existe no Checklist Fácil; caso contrário, usa nome exato somente se não houver ambiguidade. Sem correspondência única, a célula fica vazia e a resposta informa a quantidade sem PIX. O PIX fica apenas no Excel, não na prévia JSON do chat. Essa abordagem usa a conexão SharePoint já configurada no agente/fluxo e não exige credenciais Graph no Render.
+A API cruza por email/login exato quando esse dado existe no Checklist Fácil; caso contrário, usa nome exato somente se não houver ambiguidade. Quando a associação é inequívoca, o resumo e a coluna de usuário usam `Nome completo`. Sem correspondência única para nome, o valor original do Checklist Fácil é preservado. O PIX fica apenas no Excel, não na prévia JSON do chat. Essa abordagem usa a conexão SharePoint já configurada no agente/fluxo e não exige credenciais Graph no Render.
 
 Também podem ser informados categoria, fuso, validade do link, tamanho máximo e IDs dos itens. Os valores e nomes completos estão em `.env.example`.
 

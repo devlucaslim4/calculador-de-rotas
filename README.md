@@ -19,7 +19,7 @@ O projeto transforma um processo local em uma aplicação web pronta para uso, s
 - Cálculo matricial de rotas em lotes e reaproveitamento de pares de coordenadas repetidos.
 - Preenchimento de hodômetro inicial e final por `ID RESPOSTA`, com cálculo da diferença por checklist.
 - Preenchimento do percentual absoluto entre a distância do hodômetro e a distância GPS, usando a distância GPS como base.
-- Na planilha gerada pelo agente, inclusão da coluna `PIX` por correspondência inequívoca do usuário com a lista Controle de Dados Pagamentos.
+- Na planilha gerada pelo agente, inclusão da coluna `PIX` e do nome completo por correspondência inequívoca com a lista Consulta de Pagamentos.
 - Cache temporário para consultas e cálculos repetidos do mesmo período.
 - Processamento paralelo controlado para funções de rota personalizadas.
 - Barra de progresso real e métricas de sucesso e falha.
@@ -103,7 +103,7 @@ O Streamlit Community Cloud continua hospedando apenas a interface. A FastAPI pr
 
 ### Coluna PIX na planilha do agente
 
-O agente deve consultar a lista `Controle de Dados Pagamentos` por uma ação/conector SharePoint e enviar somente os pares das colunas `Usuário` e `Chave PIX` no campo `pix_por_usuario` de `/api/processar`. O serviço cruza os pares com o usuário do Checklist Fácil e inclui a coluna `PIX` no Excel. Correspondências ausentes ou ambíguas permanecem em branco e são informadas como aviso. A coluna PIX não é incluída na prévia JSON do Copilot. Não é necessário criar uma identidade Graph separada nem adicionar credenciais PIX ao Render.
+O agente deve consultar a lista `Consulta de Pagamentos` por uma ação/conector SharePoint e enviar `Usuário`, `Nome completo` e `Chave PIX` no campo `pix_por_usuario` de `/api/processar`. O serviço cruza `Usuário` com o perfil do Checklist Fácil, inclui a coluna `PIX` e substitui o identificador por `Nome completo` somente quando a associação é inequívoca. Quando o nome falta ou há ambiguidade, mantém o nome/login original do Checklist Fácil. A coluna PIX não é incluída na prévia JSON do Copilot. Não envie CPF ou dados bancários à API.
 
 ## Instalação local
 

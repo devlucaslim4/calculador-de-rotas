@@ -22,8 +22,10 @@ from checklist_transform import build_standardized_workbook, transformar_checkli
 from route_processor import ProcessingSummary, is_ignored_user_type, process_workbook
 from pix_enrichment import (
     PixDataMissingError,
+    build_display_name_index,
     build_pix_index,
     checklist_user_aliases,
+    find_unambiguous_display_name,
     find_unambiguous_pix,
 )
 
@@ -188,11 +190,21 @@ class CalculadorService:
         alias_by_name = checklist_user_aliases(snapshot.users)
         enriched = transformed.all_rows.copy()
         user_names = enriched["NOME"].dropna().unique()
+        display_name_by_user = build_display_name_index(pix_records)
         pix_by_name = {
             name: find_unambiguous_pix(name, alias_by_name, pix_by_identity)
             for name in user_names
         }
+        sharepoint_name_by_user = {
+            name: find_unambiguous_display_name(name, alias_by_name, display_name_by_user)
+            for name in user_names
+        }
         enriched["PIX"] = enriched["NOME"].map(pix_by_name)
+        # A coluna nome vem da lista SharePoint; caso falte ou haja conflito,
+        # preservamos o valor recebido do Checklist Fácil (normalmente login/email).
+        enriched["NOME"] = enriched["NOME"].map(
+            lambda current: sharepoint_name_by_user.get(current) or current
+        )
         enriched["VALOR"] = None
         remaining_columns = [
             column for column in enriched.columns if column not in {"PIX", "VALOR"}
