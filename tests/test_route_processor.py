@@ -224,16 +224,18 @@ def test_payment_summary_groups_checklists_by_user_pix_and_unit():
     result = load_workbook(BytesIO(summary.workbook))
     payments = result["Resumo de pagamentos"]
 
+    assert payments["A1"].value == "Rótulos de Linha"
+    assert payments["B1"].value == "Soma de VALOR R$"
     assert payments["A2"].value == "Ana"
-    assert payments["D2"].value == 855.56
+    assert payments["B2"].value == 855.56
     assert payments["A3"].value == "12345678901"
-    assert payments["D3"].value == 855.56
+    assert payments["B3"].value == 855.56
     assert payments["A4"].value == "Unidade A"
-    assert payments["D4"].value == 427.78
+    assert payments["B4"].value == 427.78
     assert payments["A5"].value == "Unidade B"
-    assert payments["D5"].value == 427.78
+    assert payments["B5"].value == 427.78
     assert payments["A6"].value == "TOTAL GERAL"
-    assert payments["D6"].value == 855.56
+    assert payments["B6"].value == 855.56
     assert payments.row_dimensions[3].outlineLevel == 1
     assert payments.row_dimensions[4].outlineLevel == 2
     assert result["_DadosResumoPagamentos"]["A1"].value == "Aba original preservada"

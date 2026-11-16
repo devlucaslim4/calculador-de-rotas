@@ -602,11 +602,11 @@ def process_workbook(
 
 
 def _add_payment_summary(workbook, data_sheet) -> None:
-    """Cria um resumo expansível por usuário, PIX e unidade."""
+    """Cria um resumo expansível por nome completo, PIX e unidade."""
 
     headers = {normalize_header(cell.value): cell.column for cell in data_sheet[1]}
     user_col = next(
-        (headers[key] for key in ("NOME", "USUARIO", "NOME USUARIO", "COLABORADOR", "MOTORISTA") if key in headers),
+        (headers[key] for key in ("NOME COMPLETO", "NOME", "USUARIO", "NOME USUARIO", "COLABORADOR", "MOTORISTA") if key in headers),
         None,
     )
     value_col = headers.get(normalize_header(VALUE_HEADER))
@@ -619,77 +619,62 @@ def _add_payment_summary(workbook, data_sheet) -> None:
     )
     pix_col = headers.get("PIX")
     id_col = next((headers[key] for key in ("ID RESPOSTA", "ID DA RESPOSTA", "ID") if key in headers), None)
-    distance_col = headers.get(normalize_header("DISTÂNCIA GPS"))
     users: dict[str, dict[str, object]] = {}
+    seen_ids: dict[str, set[str]] = {}
     for row_number in range(2, data_sheet.max_row + 1):
         raw_user = data_sheet.cell(row_number, user_col).value
         user = str(raw_user).strip() if raw_user is not None else ""
         if not user:
             user = "Usuário não informado"
-        record = users.setdefault(
-            user,
-            {"pix": set(), "ids": set(), "count": 0, "km": 0.0, "amount": 0.0, "units": {}},
-        )
         raw_id = data_sheet.cell(row_number, id_col).value if id_col else None
         unique_id = str(raw_id).strip() if raw_id is not None else ""
         identity = unique_id or f"linha:{row_number}"
-        if identity in record["ids"]:
+        if identity in seen_ids.setdefault(user, set()):
             continue
-        record["ids"].add(identity)
+        seen_ids[user].add(identity)
 
         raw_unit = data_sheet.cell(row_number, unit_col).value if unit_col else None
         unit = str(raw_unit).strip() if raw_unit is not None else ""
         unit = unit or "Unidade não informada"
-        unit_record = record["units"].setdefault(unit, {"count": 0, "km": 0.0, "amount": 0.0})
-        record["count"] += 1
-        unit_record["count"] += 1
-
         pix = data_sheet.cell(row_number, pix_col).value if pix_col else None
-        if pix is not None and str(pix).strip():
-            record["pix"].add(str(pix).strip())
+        pix_label = str(pix).strip() if pix is not None and str(pix).strip() else "PIX não cadastrado"
+        record = users.setdefault(user, {"amount": 0.0, "pix": {}})
+        pix_record = record["pix"].setdefault(pix_label, {"amount": 0.0, "units": {}})
+        unit_record = pix_record["units"].setdefault(unit, {"amount": 0.0})
         amount = parse_number(data_sheet.cell(row_number, value_col).value)
         if amount is not None:
             record["amount"] += amount
+            pix_record["amount"] += amount
             unit_record["amount"] += amount
-        distance = parse_number(data_sheet.cell(row_number, distance_col).value) if distance_col else None
-        if distance is not None:
-            record["km"] += distance
-            unit_record["km"] += distance
 
     if PAYMENT_SHEET in workbook.sheetnames:
         del workbook[PAYMENT_SHEET]
     summary = workbook.create_sheet(PAYMENT_SHEET)
-    summary.append(["Usuário / PIX / Unidade", "Checklists", "Distância GPS (km)", "Total a pagar (R$)"])
+    summary.append(["Rótulos de Linha", "Soma de VALOR R$"])
     user_rows: list[int] = []
+    pix_rows: list[int] = []
     unit_totals: dict[str, float] = {}
     for user, record in sorted(users.items(), key=lambda item: (-float(item[1]["amount"]), item[0].casefold())):
-        pix_values = record["pix"]
-        pix = next(iter(pix_values)) if len(pix_values) == 1 else ("Chaves divergentes" if pix_values else "PIX não cadastrado")
-        summary.append([user, record["count"], round(record["km"], 2), round(record["amount"], 2)])
+        summary.append([user, round(record["amount"], 2)])
         user_rows.append(summary.max_row)
-        summary.append([pix, None, None, round(record["amount"], 2)])
-        summary.row_dimensions[summary.max_row].outlineLevel = 1
-
-        for unit, unit_record in sorted(
-            record["units"].items(), key=lambda item: (-float(item[1]["amount"]), item[0].casefold())
+        for pix, pix_record in sorted(
+            record["pix"].items(), key=lambda item: (-float(item[1]["amount"]), item[0].casefold())
         ):
-            summary.append(
-                [
-                    unit,
-                    unit_record["count"],
-                    round(unit_record["km"], 2),
-                    round(unit_record["amount"], 2),
-                ]
-            )
-            summary.row_dimensions[summary.max_row].outlineLevel = 2
-            unit_totals[unit] = unit_totals.get(unit, 0.0) + float(unit_record["amount"])
+            summary.append([pix, round(pix_record["amount"], 2)])
+            pix_rows.append(summary.max_row)
+            summary.row_dimensions[summary.max_row].outlineLevel = 1
+            for unit, unit_record in sorted(
+                pix_record["units"].items(),
+                key=lambda item: (-float(item[1]["amount"]), item[0].casefold()),
+            ):
+                summary.append([unit, round(unit_record["amount"], 2)])
+                summary.row_dimensions[summary.max_row].outlineLevel = 2
+                unit_totals[unit] = unit_totals.get(unit, 0.0) + float(unit_record["amount"])
 
     if users:
         total_row = summary.max_row + 1
         summary.cell(total_row, 1, "TOTAL GERAL")
-        summary.cell(total_row, 2, sum(int(record["count"]) for record in users.values()))
-        summary.cell(total_row, 3, round(sum(float(record["km"]) for record in users.values()), 2))
-        summary.cell(total_row, 4, round(sum(float(record["amount"]) for record in users.values()), 2))
+        summary.cell(total_row, 2, round(sum(float(record["amount"]) for record in users.values()), 2))
         for cell in summary[total_row]:
             cell.font = Font(name="Aptos", size=10, bold=True, color="101C2B")
             cell.fill = PatternFill("solid", fgColor="FCE4D6")
@@ -726,30 +711,28 @@ def _add_payment_summary(workbook, data_sheet) -> None:
         summary.add_chart(chart, "F2")
 
     for cell in summary[1]:
-        cell.font = Font(name="Aptos", size=10, bold=True, color="101C2B")
-        cell.fill = PatternFill("solid", fgColor="FCE4D6")
+        cell.font = Font(name="Aptos", size=10, bold=True, color="FFFFFF")
+        cell.fill = PatternFill("solid", fgColor="F36C21")
         cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
         cell.border = Border(bottom=Side(style="medium", color="F36C21"))
     for row in summary.iter_rows(min_row=2, max_row=summary.max_row):
         for cell in row:
             if cell.row != summary.max_row:
                 cell.font = Font(name="Aptos", size=10, color="26384B")
-            if cell.column == 2 and isinstance(cell.value, (int, float)):
-                cell.number_format = "0"
-            elif cell.column == 3:
-                cell.number_format = "#,##0.00"
-            elif cell.column == 4:
+            if cell.column == 2:
                 cell.number_format = '"R$" #,##0.00'
     for row_number in user_rows:
         for cell in summary[row_number]:
             cell.font = Font(name="Aptos", size=10, bold=True, color="101C2B")
             cell.fill = PatternFill("solid", fgColor="FCE4D6")
             cell.border = Border(top=Side(style="thin", color="F36C21"))
+    for row_number in pix_rows:
+        for cell in summary[row_number]:
+            cell.font = Font(name="Aptos", size=10, bold=True, color="26384B")
     for row_number in range(2, summary.max_row):
         outline_level = summary.row_dimensions[row_number].outlineLevel
         if outline_level == 1:
             summary.cell(row_number, 1).alignment = Alignment(vertical="center", indent=1)
-            summary.cell(row_number, 1).font = Font(name="Aptos", size=10, italic=True, color="526173")
         elif outline_level == 2:
             summary.cell(row_number, 1).alignment = Alignment(vertical="center", indent=2)
     summary.freeze_panes = "A2"
@@ -759,11 +742,11 @@ def _add_payment_summary(workbook, data_sheet) -> None:
     summary.sheet_properties.outlinePr.summaryBelow = False
     summary.sheet_properties.tabColor = "F36C21"
     summary.row_dimensions[1].height = 34
-    summary["D1"].comment = Comment(
-        "Os valores nas linhas de usuário e PIX são subtotais. Para somar pagamentos, use o TOTAL GERAL ou os valores detalhados por unidade, sem somar os níveis juntos.",
+    summary["B1"].comment = Comment(
+        "Os valores nas linhas de nome e PIX são subtotais. Para somar pagamentos, use o TOTAL GERAL ou os valores detalhados por unidade, sem somar os níveis juntos.",
         "Calculador de Rotas",
     )
-    for column, width in {"A": 48, "B": 16, "C": 22, "D": 22}.items():
+    for column, width in {"A": 58, "B": 24}.items():
         summary.column_dimensions[column].width = width
 
 
